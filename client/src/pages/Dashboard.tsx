@@ -32,11 +32,14 @@ interface CronJob {
 interface CronLog {
   _id: string;
   jobId: string;
-  name: string;
-  status: "success" | "failed";
-  output: string;
-  durationMs: number;
-  executedAt: string;
+  jobName: string;
+  command: string;
+  triggerTime: string;
+  endTime?: string;
+  exitCode?: number;
+  stdout?: string;
+  stderr?: string;
+  status: "running" | "success" | "failure";
 }
 
 export const Dashboard: React.FC = () => {
@@ -114,8 +117,9 @@ export const Dashboard: React.FC = () => {
   };
 
   const activeCount = jobs.filter((j) => j.isActive).length;
+  const completedLogs = logs.filter((l) => l.status === "success" || l.status === "failure");
   const successLogsCount = logs.filter((l) => l.status === "success").length;
-  const successRate = logs.length > 0 ? Math.round((successLogsCount / logs.length) * 100) : 100;
+  const successRate = completedLogs.length > 0 ? Math.round((successLogsCount / completedLogs.length) * 100) : 100;
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#fafafa] py-12 px-6">
@@ -337,33 +341,45 @@ export const Dashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logs.map((log) => (
-                      <TableRow key={log._id} className="border-b border-[#f1f1f4] hover:bg-neutral-50/30 transition-colors">
-                        <TableCell className="px-6 py-3 text-xs text-neutral-500">
-                          {new Date(log.executedAt).toDateString()}
-                        </TableCell>
-                        <TableCell className="px-6 py-3 text-xs text-neutral-500">
-                          {log.name || "unknown"}
-                        </TableCell>
-                        <TableCell className="px-6 py-3">
-                          {log.status === "success" ? (
-                            <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-                              <CheckCircle2 className="h-3.5 w-3.5 stroke-[1.5]" /> Success
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-[11px] font-medium text-red-600">
-                              <XCircle className="h-3.5 w-3.5 stroke-[1.5]" /> Failed
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-6 py-3 text-xs text-neutral-600 font-mono">
-                          {log.durationMs}ms
-                        </TableCell>
-                        <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-[400px] truncate">
-                          {log.output || <span className="italic text-neutral-300">No output returned</span>}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {logs.map((log: CronLog) => {
+                      const latencyMs = log.triggerTime && log.endTime
+                        ? new Date(log.endTime).getTime() - new Date(log.triggerTime).getTime()
+                        : null;
+                      const shellOutput = log.stdout || log.stderr || null;
+                      return (
+                        <TableRow key={log._id} className="border-b border-[#f1f1f4] hover:bg-neutral-50/30 transition-colors">
+                          <TableCell className="px-6 py-3 text-xs text-neutral-500">
+                            {log.triggerTime
+                              ? new Date(log.triggerTime).toLocaleString()
+                              : "—"}
+                          </TableCell>
+                          <TableCell className="px-6 py-3 text-xs text-neutral-500">
+                            {log.jobName || "—"}
+                          </TableCell>
+                          <TableCell className="px-6 py-3">
+                            {log.status === "success" ? (
+                              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                                <CheckCircle2 className="h-3.5 w-3.5 stroke-[1.5]" /> Success
+                              </span>
+                            ) : log.status === "running" ? (
+                              <span className="flex items-center gap-1 text-[11px] font-medium text-amber-500">
+                                <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" /> Running
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[11px] font-medium text-red-600">
+                                <XCircle className="h-3.5 w-3.5 stroke-[1.5]" /> Failed
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-6 py-3 text-xs text-neutral-600 font-mono">
+                            {latencyMs !== null ? `${latencyMs}ms` : "—"}
+                          </TableCell>
+                          <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-[400px] truncate">
+                            {shellOutput || <span className="italic text-neutral-300">No output returned</span>}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
