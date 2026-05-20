@@ -8,4 +8,6 @@ export const env = {
   JWT_SECRET: process.env.JWT_SECRET as string,
   DB_URI: process.env.DB_URI as string,
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY as string,
+  CLIENT_APP_URL: process.env.CLIENT_APP_URL as string,
+  SERVER_APP_URL: process.env.SERVER_APP_URL as string,
 };

@@ -10,9 +10,8 @@ const PORT = env.PORT;
 
 server.listen(PORT, async () => {
   await connectDB(env.DB_URI);
-  console.log(`Server is running on port ${PORT}`);
-  
   // Initialize Cron Service and load active jobs from DB
   const cronService = new CronService();
   await cronService.initialize();
+  console.log(`Server ${env.SERVER_APP_URL} is running on port ${PORT}`);
 });
