@@ -16,7 +16,9 @@ import {
   XCircle, 
   AlertCircle, 
   ToggleLeft, 
-  ToggleRight
+  ToggleRight,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface CronJob {
@@ -48,6 +50,9 @@ export const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [logsLoading, setLogsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const logsPerPage = 10;
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -65,12 +70,14 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const fetchLogs = async () => {
+  const fetchLogs = async (page = 1) => {
     setLogsLoading(true);
     try {
-      const response = await api.get("/cron/logs");
-      const fetchedLogs = response.data?.logs || response.data || [];
+      const response = await api.get(`/cron/logs?page=${page}&limit=${logsPerPage}`);
+      const fetchedLogs = response.data?.logs || [];
       setLogs(Array.isArray(fetchedLogs) ? fetchedLogs : []);
+      setTotalPages(response.data?.pagination?.pages || 1);
+      setCurrentPage(page);
     } catch (err) {
       console.error("Failed to fetch logs:", err);
     } finally {
@@ -80,6 +87,7 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchLogs(1);
   }, []);
 
   const handleToggleStatus = async (jobId: string, currentStatus: boolean) => {
@@ -202,7 +210,7 @@ export const Dashboard: React.FC = () => {
             <TabsTrigger value="jobs" className="rounded-lg text-xs font-light tracking-wide text-[#71717a] data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs px-5 h-8">
               Active Schedules ({jobs.length})
             </TabsTrigger>
-            <TabsTrigger value="logs" onClick={fetchLogs} className="rounded-lg text-xs font-light tracking-wide text-[#71717a] data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs px-5 h-8">
+            <TabsTrigger value="logs" onClick={() => fetchLogs()} className="rounded-lg text-xs font-light tracking-wide text-[#71717a] data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs px-5 h-8">
               Telemetry Logs
             </TabsTrigger>
           </TabsList>
@@ -329,59 +337,87 @@ export const Dashboard: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="bg-white border border-[#f1f1f4] rounded-xl shadow-xs overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-neutral-50/50">
-                    <TableRow className="border-b border-[#f1f1f4] hover:bg-transparent">
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6">Timestamp</TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6">Name</TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[100px] h-11 px-6">Status</TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[100px] h-11 px-6">Latency</TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs h-11 px-6">Execution Shell Output</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {logs.map((log: CronLog) => {
-                      const latencyMs = log.triggerTime && log.endTime
-                        ? new Date(log.endTime).getTime() - new Date(log.triggerTime).getTime()
-                        : null;
-                      const shellOutput = log.stdout || log.stderr || null;
-                      return (
-                        <TableRow key={log._id} className="border-b border-[#f1f1f4] hover:bg-neutral-50/30 transition-colors">
-                          <TableCell className="px-6 py-3 text-xs text-neutral-500">
-                            {log.triggerTime
-                              ? new Date(log.triggerTime).toLocaleString()
-                              : "—"}
-                          </TableCell>
-                          <TableCell className="px-6 py-3 text-xs text-neutral-500">
-                            {log.jobName || "—"}
-                          </TableCell>
-                          <TableCell className="px-6 py-3">
-                            {log.status === "success" ? (
-                              <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-                                <CheckCircle2 className="h-3.5 w-3.5 stroke-[1.5]" /> Success
-                              </span>
-                            ) : log.status === "running" ? (
-                              <span className="flex items-center gap-1 text-[11px] font-medium text-amber-500">
-                                <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" /> Running
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1 text-[11px] font-medium text-red-600">
-                                <XCircle className="h-3.5 w-3.5 stroke-[1.5]" /> Failed
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="px-6 py-3 text-xs text-neutral-600 font-mono">
-                            {latencyMs !== null ? `${latencyMs}ms` : "—"}
-                          </TableCell>
-                          <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-[400px] truncate">
-                            {shellOutput || <span className="italic text-neutral-300">No output returned</span>}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <div className="space-y-4">
+                <div className="bg-white border border-[#f1f1f4] rounded-xl shadow-xs overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-neutral-50/50">
+                      <TableRow className="border-b border-[#f1f1f4] hover:bg-transparent">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6">Timestamp</TableHead>
+                        <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6">Name</TableHead>
+                        <TableHead className="font-normal text-neutral-500 text-xs w-[100px] h-11 px-6">Status</TableHead>
+                        <TableHead className="font-normal text-neutral-500 text-xs w-[100px] h-11 px-6">Latency</TableHead>
+                        <TableHead className="font-normal text-neutral-500 text-xs h-11 px-6">Execution Shell Output</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {logs.map((log: CronLog) => {
+                        const latencyMs = log.triggerTime && log.endTime
+                          ? new Date(log.endTime).getTime() - new Date(log.triggerTime).getTime()
+                          : null;
+                        const shellOutput = log.stdout || log.stderr || null;
+                        return (
+                          <TableRow key={log._id} className="border-b border-[#f1f1f4] hover:bg-neutral-50/30 transition-colors">
+                            <TableCell className="px-6 py-3 text-xs text-neutral-500">
+                              {log.triggerTime
+                                ? new Date(log.triggerTime).toLocaleString()
+                                : "—"}
+                            </TableCell>
+                            <TableCell className="px-6 py-3 text-xs text-neutral-500">
+                              {log.jobName || "—"}
+                            </TableCell>
+                            <TableCell className="px-6 py-3">
+                              {log.status === "success" ? (
+                                <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                                  <CheckCircle2 className="h-3.5 w-3.5 stroke-[1.5]" /> Success
+                                </span>
+                              ) : log.status === "running" ? (
+                                <span className="flex items-center gap-1 text-[11px] font-medium text-amber-500">
+                                  <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" /> Running
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-1 text-[11px] font-medium text-red-600">
+                                  <XCircle className="h-3.5 w-3.5 stroke-[1.5]" /> Failed
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-6 py-3 text-xs text-neutral-600 font-mono">
+                              {latencyMs !== null ? `${latencyMs}ms` : "—"}
+                            </TableCell>
+                            <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-[400px] truncate">
+                              {shellOutput || <span className="italic text-neutral-300">No output returned</span>}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+                
+                <div className="flex items-center justify-between px-2">
+                  <p className="text-xs font-light text-[#71717a]">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchLogs(currentPage - 1)}
+                      disabled={currentPage === 1 || logsLoading}
+                      className="h-8 w-8 p-0 border-[#f1f1f4]"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fetchLogs(currentPage + 1)}
+                      disabled={currentPage === totalPages || logsLoading}
+                      className="h-8 w-8 p-0 border-[#f1f1f4]"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </div>
             )}
           </TabsContent>
