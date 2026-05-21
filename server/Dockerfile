@@ -1,11 +1,25 @@
-FROM oven/bun:1 AS runtime
+FROM oven/bun:1-slim AS runtime
 
 WORKDIR /app
 
+# Copy only dependency files first for better layer caching
 COPY package.json bun.lock ./
-RUN bun install --production
 
+# Install only production dependencies
+RUN bun install --frozen-lockfile --production
+
+# Copy source code
 COPY . .
 
+# Remove unnecessary files from final image
+RUN rm -rf \
+    .git \
+    node_modules/.cache \
+    tests \
+    docs
+
+# Bun apps usually run on 3000
 EXPOSE 3000
+
+# Use exec form
 CMD ["bun", "run", "index.ts"]
