@@ -10,20 +10,37 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Deploy to VM via SSH
         uses: appleboy/ssh-action@v0.1.10
+
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+
           script: |
             cd /home/ubuntu/crontab/server
+
             git pull origin main
+
+            # Stop and remove old container if exists
+            docker rm -f crontab-server || true
+
+            # Remove old image (optional)
+            docker rmi crontab-server || true
+
+            # Build new image
             docker build -t crontab-server .
-            docker stop fervent_merkle || true
-            docker rm fervent_merkle || true
-            docker run -d --name fervent_merkle -p 3000:3000 crontab-server
+
+            # Run new container
+            docker run -d \
+              --name crontab-server \
+              -p 3000:3000 \
+              --env-file .env \
+              --restart unless-stopped \
+              crontab-server
