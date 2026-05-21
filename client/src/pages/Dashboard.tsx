@@ -376,7 +376,7 @@ export const Dashboard: React.FC = () => {
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1 text-[11px] font-medium text-red-600">
-                                  <XCircle className="h-3.5 w-3.5 stroke-[1.5]\" /> Failed
+                                  <XCircle className="h-3.5 w-3.5 stroke-[1.5]" /> Failed
                                 </span>
                               )}
                             </TableCell>
@@ -396,7 +396,8 @@ export const Dashboard: React.FC = () => {
                 <div className="flex items-center justify-between px-2">
                   <p className="text-xs font-light text-[#71717a]">
                     Page {currentPage} of {totalPages}
-                  </p>\n                  <div className="flex items-center gap-2">
+                  </p>
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"

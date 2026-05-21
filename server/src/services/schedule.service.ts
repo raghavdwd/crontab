@@ -238,7 +238,8 @@ class CronService {
     // 2. Query logs filtered by the user's job IDs
     const query: any = { jobId: { $in: jobIds } };
     if (jobId) {
-      query.jobId = jobId;
+      // Intersect with jobIds to maintain ownership restriction
+      query.jobId = { $in: jobIds, $eq: jobId };
     }
 
     const [logs, total] = await Promise.all([
