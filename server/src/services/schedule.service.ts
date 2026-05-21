@@ -228,9 +228,9 @@ class CronService {
   }
 
   /**
-   * Database Operations: Retrieves logs belonging to a specific user's jobs.
+   * Database Operations: Retrieves logs belonging to a specific user's jobs with pagination.
    */
-  async getLogs(userId: string, jobId?: string, limit = 100): Promise<any[]> {
+  async getLogs(userId: string, jobId?: string, page = 1, limit = 10): Promise<{ logs: any[]; total: number }> {
     // 1. Fetch only jobs owned by this user
     const userJobs = await CronJob.find({ userId }).select("_id");
     const jobIds = userJobs.map(j => j._id);
@@ -241,10 +241,16 @@ class CronService {
       query.jobId = jobId;
     }
 
-    return await CronLog.find(query)
-      .populate("jobId", "name schedule command")
-      .sort({ triggerTime: -1 })
-      .limit(limit);
+    const [logs, total] = await Promise.all([
+      CronLog.find(query)
+        .populate("jobId", "name schedule command")
+        .sort({ triggerTime: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      CronLog.countDocuments(query)
+    ]);
+
+    return { logs, total };
   }
 }
 

@@ -123,11 +123,20 @@ export const handleGetLogs = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    const { jobId, limit } = req.query;
-    const parsedLimit = limit ? parseInt(limit as string, 10) : undefined;
+    const { jobId, page, limit } = req.query;
+    const parsedPage = page ? parseInt(page as string, 10) : 1;
+    const parsedLimit = limit ? parseInt(limit as string, 10) : 10;
 
-    const logs = await cronService.getLogs(userId, jobId as string, parsedLimit);
-    res.status(200).json({ logs });
+    const { logs, total } = await cronService.getLogs(userId, jobId as string, parsedPage, parsedLimit);
+    res.status(200).json({ 
+      logs,
+      pagination: {
+        total,
+        page: parsedPage,
+        limit: parsedLimit,
+        pages: Math.ceil(total / parsedLimit)
+      }
+    });
   } catch (error: any) {
     res.status(500).json({
       error: "Failed to retrieve cron logs.",
