@@ -2,6 +2,9 @@ FROM oven/bun:1-slim AS runtime
 
 WORKDIR /app
 
+# Install curl for cron jobs
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Copy only dependency files first for better layer caching
 COPY package.json bun.lock ./
 
