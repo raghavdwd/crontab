@@ -28,11 +28,8 @@ jobs:
 
             git pull origin main
 
-            # Stop and remove old container if exists
-            docker rm -f crontab-server || true
-
-            # Remove old image (optional)
-            docker rmi crontab-server || true
+            # Stop all containers using port 3000
+            docker ps -q --filter "publish=3000" | xargs -r docker rm -f
 
             # Build new image
             docker build -t crontab-server .
@@ -44,3 +41,6 @@ jobs:
               --env-file .env \
               --restart unless-stopped \
               crontab-server
+
+            # Optional cleanup
+            docker image prune -f
