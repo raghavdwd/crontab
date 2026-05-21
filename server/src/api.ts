@@ -8,7 +8,7 @@ const apiRouter = Router();
 
 // Public health check route
 apiRouter.get("/status", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Authentication routes (Register, Login, Me)
