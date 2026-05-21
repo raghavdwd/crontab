@@ -210,7 +210,7 @@ export const Dashboard: React.FC = () => {
             <TabsTrigger value="jobs" className="rounded-lg text-xs font-light tracking-wide text-[#71717a] data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs px-5 h-8">
               Active Schedules ({jobs.length})
             </TabsTrigger>
-            <TabsTrigger value="logs" onClick={fetchLogs} className="rounded-lg text-xs font-light tracking-wide text-[#71717a] data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs px-5 h-8">
+            <TabsTrigger value="logs" onClick={() => fetchLogs()} className="rounded-lg text-xs font-light tracking-wide text-[#71717a] data-[state=active]:bg-white data-[state=active]:text-black data-[state=active]:shadow-xs px-5 h-8">
               Telemetry Logs
             </TabsTrigger>
           </TabsList>
