@@ -4,14 +4,11 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { 
   Clock, 
-  Shield, 
   Sparkles, 
   Code, 
   ArrowRight, 
-  Server, 
   CheckCircle2, 
   Database,
-  ArrowUpRight,
   Activity,
   Terminal,
   RefreshCw,
