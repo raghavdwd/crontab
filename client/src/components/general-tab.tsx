@@ -13,8 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Plus, AlertCircle, Loader2, Info, Sparkles, X } from "lucide-react";
-import { Link } from "react-router-dom";
 
 interface GeneralTabProps {
   name: string;
