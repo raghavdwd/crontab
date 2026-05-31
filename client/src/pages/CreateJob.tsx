@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, Plus, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import GeneralTab from "@/components/general-tab";
@@ -15,7 +15,6 @@ interface Header {
 }
 
 export const CreateJob: React.FC = () => {
-  const [tabs, setTabs] = useState<"general" | "advanced">("general");
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
@@ -99,11 +98,7 @@ export const CreateJob: React.FC = () => {
         {/* Form */}
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 gap-2">
-            <Tabs
-              defaultValue="general"
-              className="w-full"
-              onValueChange={(value) => setTabs(value as any)}
-            >
+            <Tabs defaultValue="general" className="w-full">
               <TabsList>
                 <TabsTrigger value="general">General</TabsTrigger>
                 <TabsTrigger value="advanced">Advanced</TabsTrigger>
