@@ -44,8 +44,6 @@ const AdvancedTab = ({
   onTimeoutChange,
   onExpectedStatusChange,
 }: AdvancedTabProps) => {
-  const [headersCount, setHeadersCount] = React.useState(1);
-
   const toggleEnable = (id: number) => {
     onHeadersChange(
       headers.map((header) =>
@@ -55,10 +53,10 @@ const AdvancedTab = ({
   };
 
   const duplicateHeaderField = () => {
-    setHeadersCount((prev) => prev + 1);
+    const nextId = headers.reduce((max, h) => Math.max(max, h.id), 0) + 1;
     onHeadersChange([
       ...headers,
-      { id: headersCount + 1, name: "", value: "", enabled: true },
+      { id: nextId, name: "", value: "", enabled: true },
     ]);
   };
 
