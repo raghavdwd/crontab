@@ -196,6 +196,17 @@ class CronService {
       throw new Error("Cron job not found or unauthorized.");
     }
 
+    // Keep previous values for rollback if re-scheduling fails
+    const previousIsActive = job.isActive;
+    const previousSchedule = job.schedule;
+    const previousCommand = job.command;
+    const previousName = job.name;
+    const previousMethod = job.method;
+    const previousHeaders = job.headers;
+    const previousBody = job.body;
+    const previousTimeout = job.timeout;
+    const previousExpectedStatus = job.expectedStatus;
+
     // Apply updates to DB object
     if (updateData.name !== undefined) job.name = updateData.name;
     if (updateData.schedule !== undefined) job.schedule = updateData.schedule;
@@ -206,17 +217,6 @@ class CronService {
     if (updateData.body !== undefined) job.body = updateData.body;
     if (updateData.timeout !== undefined) job.timeout = updateData.timeout;
     if (updateData.expectedStatus !== undefined) job.expectedStatus = updateData.expectedStatus;
-
-    // Validate the new configuration by trying to schedule/re-schedule
-    const previousIsActive = job.isActive;
-    const previousSchedule = job.schedule;
-    const previousCommand = job.command;
-    const previousName = job.name;
-    const previousMethod = job.method;
-    const previousHeaders = job.headers;
-    const previousBody = job.body;
-    const previousTimeout = job.timeout;
-    const previousExpectedStatus = job.expectedStatus;
 
     await job.save();
 
