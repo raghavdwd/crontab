@@ -133,7 +133,19 @@ class CronService {
   /**
    * Database Operations: Creates a new cron job for a specific user, persists it, and schedules it.
    */
-  async createJob(userId: string, name: string | undefined, schedule: string, command: string): Promise<ICronJob> {
+  async createJob(
+    userId: string,
+    name: string | undefined,
+    schedule: string,
+    command: string,
+    advanced?: {
+      method?: string;
+      headers?: { name: string; value: string; enabled: boolean }[];
+      body?: string;
+      timeout?: number;
+      expectedStatus?: number;
+    },
+  ): Promise<ICronJob> {
     // 1. Save to the database
     const job = await CronJob.create({
       userId,
@@ -141,6 +153,11 @@ class CronService {
       schedule,
       command,
       isActive: true,
+      method: advanced?.method,
+      headers: advanced?.headers,
+      body: advanced?.body,
+      timeout: advanced?.timeout,
+      expectedStatus: advanced?.expectedStatus,
     });
 
     try {
@@ -161,7 +178,17 @@ class CronService {
   async updateJob(
     userId: string,
     jobId: string,
-    updateData: { name?: string; schedule?: string; command?: string; isActive?: boolean }
+    updateData: {
+      name?: string;
+      schedule?: string;
+      command?: string;
+      isActive?: boolean;
+      method?: string;
+      headers?: { name: string; value: string; enabled: boolean }[];
+      body?: string;
+      timeout?: number;
+      expectedStatus?: number;
+    }
   ): Promise<ICronJob | null> {
     // Find job belonging ONLY to this user
     const job = await CronJob.findOne({ _id: jobId, userId });
@@ -174,12 +201,22 @@ class CronService {
     if (updateData.schedule !== undefined) job.schedule = updateData.schedule;
     if (updateData.command !== undefined) job.command = updateData.command;
     if (updateData.isActive !== undefined) job.isActive = updateData.isActive;
+    if (updateData.method !== undefined) job.method = updateData.method;
+    if (updateData.headers !== undefined) job.headers = updateData.headers;
+    if (updateData.body !== undefined) job.body = updateData.body;
+    if (updateData.timeout !== undefined) job.timeout = updateData.timeout;
+    if (updateData.expectedStatus !== undefined) job.expectedStatus = updateData.expectedStatus;
 
     // Validate the new configuration by trying to schedule/re-schedule
     const previousIsActive = job.isActive;
     const previousSchedule = job.schedule;
     const previousCommand = job.command;
     const previousName = job.name;
+    const previousMethod = job.method;
+    const previousHeaders = job.headers;
+    const previousBody = job.body;
+    const previousTimeout = job.timeout;
+    const previousExpectedStatus = job.expectedStatus;
 
     await job.save();
 
@@ -198,6 +235,11 @@ class CronService {
           schedule: previousSchedule,
           command: previousCommand,
           name: previousName || "unknown",
+          method: previousMethod,
+          headers: previousHeaders,
+          body: previousBody,
+          timeout: previousTimeout,
+          expectedStatus: previousExpectedStatus,
         }
       );
       throw error;

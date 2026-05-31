@@ -1,40 +1,36 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import api from "../lib/api";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import {
-  ArrowLeft,
-  Plus,
-  AlertCircle,
-  Loader2,
-  Info,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Plus, Loader2, AlertCircle } from "lucide-react";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import GeneralTab from "@/components/general-tab";
+import AdvancedTab from "@/components/advanced-tab";
+import api from "@/lib/api";
+
+interface Header {
+  id: number;
+  name: string;
+  value: string;
+  enabled: boolean;
+}
 
 export const CreateJob: React.FC = () => {
+  const [tabs, setTabs] = useState<"general" | "advanced">("general");
   const navigate = useNavigate();
+
   const [name, setName] = useState("");
   const [schedule, setSchedule] = useState("");
   const [url, setUrl] = useState("");
+  const [headers, setHeaders] = useState<Header[]>([
+    { id: 1, name: "", value: "", enabled: true },
+  ]);
+  const [method, setMethod] = useState("GET");
+  const [body, setBody] = useState("");
+  const [timeout, setTimeout_] = useState("");
+  const [expectedStatus, setExpectedStatus] = useState("");
+
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // AI generation state
-  const [aiDescription, setAiDescription] = useState("");
-  const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiSuccess, setAiSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +39,11 @@ export const CreateJob: React.FC = () => {
       return;
     }
 
-    // A very basic check for valid cron (5 fields)
     const cronFields = schedule.trim().split(/\s+/);
     if (cronFields.length !== 5) {
-      setError("A standard cron expression must contain exactly 5 space-separated fields.");
+      setError(
+        "A standard cron expression must contain exactly 5 space-separated fields.",
+      );
       return;
     }
 
@@ -54,65 +51,27 @@ export const CreateJob: React.FC = () => {
     setSubmitting(true);
 
     try {
+      const enabledHeaders = headers.filter((h) => h.enabled && h.name.trim());
       await api.post("/cron", {
         name: name.trim() || undefined,
         schedule: schedule.trim(),
         url: url.trim(),
+        headers: enabledHeaders.length > 0 ? enabledHeaders : undefined,
+        method: method !== "GET" ? method : undefined,
+        body: body.trim() || undefined,
+        timeout: timeout ? Number(timeout) : undefined,
+        expectedStatus: expectedStatus ? Number(expectedStatus) : undefined,
       });
       navigate("/dashboard");
     } catch (err: any) {
       console.error(err);
       setError(
         err.response?.data?.error ||
-        "Failed to create cron job. Make sure the cron expression is valid."
+          "Failed to create cron job. Make sure the cron expression is valid.",
       );
     } finally {
       setSubmitting(false);
     }
-  };
-
-  /**
-   * Calls the AI endpoint to generate a cron expression from a natural language description,
-   * then auto-fills the schedule field.
-   */
-  const handleCronGeneration = async () => {
-    if (!aiDescription.trim()) {
-      setError("Please describe what you want to schedule before generating.");
-      return;
-    }
-
-    setError(null);
-    setAiGenerating(true);
-    setAiSuccess(false);
-
-    try {
-      const res = await api.post("/ai/generate-cron", {
-        cron_description: aiDescription.trim(),
-      });
-      const expression: string = res.data?.aiResponse?.cron_expression;
-      if (!expression) {
-        throw new Error("No cron expression returned from AI.");
-      }
-      setSchedule(expression);
-      setAiSuccess(true);
-      setAiPanelOpen(false);
-      setAiDescription("");
-    } catch (err: any) {
-      console.error(err);
-      setError(
-        err.response?.data?.error ||
-        err.message ||
-        "AI generation failed. Please try again or enter the expression manually."
-      );
-    } finally {
-      setAiGenerating(false);
-    }
-  };
-
-  const toggleAiPanel = () => {
-    setAiPanelOpen((prev) => !prev);
-    setError(null);
-    setAiSuccess(false);
   };
 
   return (
@@ -129,237 +88,56 @@ export const CreateJob: React.FC = () => {
 
         {/* Title Block */}
         <div className="mb-10">
-          <h1 className="text-2xl font-normal text-black tracking-tight">Create Cron Job</h1>
+          <h1 className="text-2xl font-normal text-black tracking-tight">
+            Create Cron Job
+          </h1>
           <p className="text-sm font-light text-[#71717a] mt-1">
             Configure a new scheduled GET ping to your HTTP endpoint.
           </p>
         </div>
 
-        {/* Form Card */}
-        <div className="grid grid-cols-1 gap-6">
-          <Card className="border border-[#f1f1f4] bg-white shadow-xs rounded-xl overflow-hidden">
-            <form onSubmit={handleSubmit}>
-              <CardHeader className="p-6 pb-4">
-                <CardTitle className="text-base font-medium text-black">
-                  Job Configuration
-                </CardTitle>
-                <CardDescription className="text-xs font-light text-[#71717a]">
-                  Define the name, interval expression, and destination of the trigger.
-                </CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-6 p-6 pt-0">
-                {error && (
-                  <div className="flex items-start gap-2.5 rounded-xl bg-red-50/50 border border-red-100 p-4 text-xs text-red-600">
-                    <AlertCircle className="h-4 w-4 shrink-0 stroke-[1.5] mt-0.5" />
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">Error</span>
-                      <span className="font-light">{error}</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Job Name */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="text-xs font-normal text-neutral-600">
-                    Job Name{" "}
-                    <span className="text-[#71717a] font-light">(Optional)</span>
-                  </Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="e.g. Database Ping"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={submitting}
-                    className="h-10 border-[#e4e4e7] bg-[#fafafa]/50 focus-visible:ring-1 focus-visible:ring-[#18181b] rounded-lg text-sm font-light placeholder:text-neutral-400"
-                  />
-                </div>
-
-                {/* Cron Schedule Expression */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="schedule" className="text-xs font-normal text-neutral-600">
-                      Cron Schedule Expression
-                    </Label>
-                    <button
-                      type="button"
-                      onClick={toggleAiPanel}
-                      className={`inline-flex items-center gap-1 text-[10px] font-light rounded-md px-2 py-0.5 border transition-all ${
-                        aiPanelOpen
-                          ? "bg-violet-50 border-violet-200 text-violet-600"
-                          : "bg-neutral-50 border-neutral-200 text-neutral-500 hover:border-violet-200 hover:text-violet-500 hover:bg-violet-50"
-                      }`}
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      Generate with AI
-                    </button>
-                  </div>
-
-                  {/* AI Panel */}
-                  {aiPanelOpen && (
-                    <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-violet-700">
-                          <Sparkles className="h-3.5 w-3.5" />
-                          AI Cron Generator
-                        </div>
-                        <button
-                          type="button"
-                          onClick={toggleAiPanel}
-                          className="text-neutral-400 hover:text-neutral-600 transition-colors"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <p className="text-[10px] text-violet-600/70 font-light">
-                        Describe your schedule in plain English and AI will generate the cron expression.
-                      </p>
-                      <div className="flex gap-2">
-                        <Input
-                          type="text"
-                          placeholder='e.g. "Every day at 3am" or "Every 15 minutes on weekdays"'
-                          value={aiDescription}
-                          onChange={(e) => setAiDescription(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleCronGeneration())}
-                          disabled={aiGenerating}
-                          className="h-9 flex-1 border-violet-200 bg-white focus-visible:ring-1 focus-visible:ring-violet-400 rounded-lg text-xs font-light placeholder:text-neutral-400"
-                        />
-                        <Button
-                          type="button"
-                          onClick={handleCronGeneration}
-                          disabled={aiGenerating || !aiDescription.trim()}
-                          className="h-9 px-3 bg-violet-600 hover:bg-violet-700 text-white text-xs font-light rounded-lg flex items-center gap-1.5 shrink-0 shadow-sm disabled:opacity-50"
-                        >
-                          {aiGenerating ? (
-                            <>
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              Generating...
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="h-3 w-3" />
-                              Generate
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Schedule Input */}
-                  <div className="relative">
-                    <Input
-                      id="schedule"
-                      type="text"
-                      placeholder="*/5 * * * *"
-                      value={schedule}
-                      onChange={(e) => {
-                        setSchedule(e.target.value);
-                        setAiSuccess(false);
-                      }}
-                      disabled={submitting}
-                      className={`h-10 bg-[#fafafa]/50 font-mono text-xs focus-visible:ring-1 rounded-lg placeholder:text-neutral-400 pr-8 transition-colors ${
-                        aiSuccess
-                          ? "border-violet-300 focus-visible:ring-violet-400"
-                          : "border-[#e4e4e7] focus-visible:ring-[#18181b]"
-                      }`}
-                    />
-                    {aiSuccess && (
-                      <Sparkles className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-violet-400" />
-                    )}
-                  </div>
-                  <p className="text-[10px] font-light text-[#71717a]">
-                    Must be a 5-field expression: minute, hour, day of month, month, day of week.
-                  </p>
-                </div>
-
-                {/* Target URL */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="url" className="text-xs font-normal text-neutral-600">
-                    Target Ping URL
-                  </Label>
-                  <Input
-                    id="url"
-                    type="url"
-                    placeholder="https://api.example.com/v1/backup"
-                    value={url}
-                    onChange={(e) => setUrl(e.target.value)}
-                    disabled={submitting}
-                    className="h-10 border-[#e4e4e7] bg-[#fafafa]/50 font-mono text-xs focus-visible:ring-1 focus-visible:ring-[#18181b] rounded-lg placeholder:text-neutral-400"
-                  />
-                  <p className="text-[10px] font-light text-[#71717a]">
-                    Our runner will perform a{" "}
-                    <span className="font-medium text-black">GET</span> ping on this URL on the
-                    defined schedule.
-                  </p>
-                </div>
-              </CardContent>
-
-              {/* Reference Guide */}
-              <div className="border-t border-[#f1f1f4] bg-neutral-50/50 p-6 flex gap-4">
-                <Info className="h-5 w-5 text-neutral-400 shrink-0 stroke-[1.5]" />
-                <div className="flex-1 text-xs">
-                  <h4 className="font-normal text-black mb-1.5">Cron Expression Reference</h4>
-                  <ul className="space-y-1 text-[#71717a] font-light">
-                    <li>
-                      <code className="font-mono text-black font-normal bg-neutral-100 px-1 rounded">
-                        */5 * * * *
-                      </code>{" "}
-                      &mdash; Every 5 minutes
-                    </li>
-                    <li>
-                      <code className="font-mono text-black font-normal bg-neutral-100 px-1 rounded">
-                        0 * * * *
-                      </code>{" "}
-                      &mdash; Hourly (at minute 0)
-                    </li>
-                    <li>
-                      <code className="font-mono text-black font-normal bg-neutral-100 px-1 rounded">
-                        0 0 * * *
-                      </code>{" "}
-                      &mdash; Daily (at midnight)
-                    </li>
-                    <li>
-                      <code className="font-mono text-black font-normal bg-neutral-100 px-1 rounded">
-                        0 0 * * 0
-                      </code>{" "}
-                      &mdash; Weekly (Sunday at midnight)
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <CardFooter className="border-t border-[#f1f1f4] p-6 bg-white flex items-center justify-end gap-3">
-                <Link to="/dashboard">
-                  <Button
-                    variant="outline"
-                    className="border-[#e4e4e7] text-neutral-600 hover:bg-neutral-50 font-light rounded-lg"
-                  >
-                    Cancel
-                  </Button>
-                </Link>
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  className="bg-black hover:bg-black/90 text-white font-light tracking-wide rounded-lg flex items-center gap-2 shadow-sm"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin text-white" />
-                      Scheduling...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4 stroke-[1.5]" />
-                      Schedule Job
-                    </>
-                  )}
-                </Button>
-              </CardFooter>
-            </form>
-          </Card>
-        </div>
+        {/* Form */}
+        <form onSubmit={handleSubmit}>
+          <div className="grid grid-cols-1 gap-2">
+            <Tabs
+              defaultValue="general"
+              className="w-full"
+              onValueChange={(value) => setTabs(value as any)}
+            >
+              <TabsList>
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="advanced">Advanced</TabsTrigger>
+              </TabsList>
+              <TabsContent value="general">
+                <GeneralTab
+                  name={name}
+                  schedule={schedule}
+                  url={url}
+                  error={error}
+                  submitting={submitting}
+                  onNameChange={setName}
+                  onScheduleChange={setSchedule}
+                  onUrlChange={setUrl}
+                  onErrorChange={setError}
+                />
+              </TabsContent>
+              <TabsContent value="advanced">
+                <AdvancedTab
+                  headers={headers}
+                  method={method}
+                  body={body}
+                  timeout={timeout}
+                  expectedStatus={expectedStatus}
+                  onHeadersChange={setHeaders}
+                  onMethodChange={setMethod}
+                  onBodyChange={setBody}
+                  onTimeoutChange={setTimeout_}
+                  onExpectedStatusChange={setExpectedStatus}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -13,7 +13,7 @@ export interface AuthenticatedRequest extends Request {
 export const authMiddleware = (
   req: AuthenticatedRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): void => {
   try {
     const authHeader = req.headers.authorization;
@@ -29,7 +29,10 @@ export const authMiddleware = (
       return;
     }
     const decoded = authService.verifyToken(token);
-
+    if (!decoded.id || decoded === null) {
+      res.status(401).json({ error: "Access denied. Invalid token." });
+      return;
+    }
     // Attach decoded user payload to request
     req.user = decoded;
     next();
