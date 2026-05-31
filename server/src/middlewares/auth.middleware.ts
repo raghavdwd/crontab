@@ -29,17 +29,21 @@ export const authMiddleware = (
       return;
     }
     const decoded = authService.verifyToken(token);
+    if (!decoded || typeof decoded !== "object") {
+      res.status(401).json({ error: "Access denied. Invalid token." });
+      return;
+    }
+    const decodedUser = decoded as { id?: unknown; username?: unknown };
     if (
-      !decoded ||
-      typeof decoded !== "object" ||
-      !("id" in decoded) ||
-      !decoded.id
+      typeof decodedUser.id !== "string" ||
+      decodedUser.id.length === 0 ||
+      typeof decodedUser.username !== "string"
     ) {
       res.status(401).json({ error: "Access denied. Invalid token." });
       return;
     }
     // Attach decoded user payload to request
-    req.user = decoded;
+    req.user = decodedUser as { id: string; username: string };
     next();
   } catch (error: any) {
     res.status(401).json({
