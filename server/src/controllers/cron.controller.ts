@@ -98,11 +98,23 @@ export const handleUpdateJob = async (
       isActive,
     } = req.body;
 
+    const shouldRebuildCommand =
+      url !== undefined ||
+      method !== undefined ||
+      headers !== undefined ||
+      body !== undefined ||
+      timeout !== undefined;
+
     let command: string | undefined;
-    if (url) {
+    if (shouldRebuildCommand) {
+      if (!url) {
+        res.status(400).json({
+          error: "Field 'url' is required when updating request details.",
+        });
+        return;
+      }
       command = buildCurlCommand(url, method, headers, body, timeout);
     }
-
     const job = await cronService.updateJob(userId, id, {
       name,
       schedule,
