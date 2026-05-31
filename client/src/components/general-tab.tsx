@@ -1,15 +1,18 @@
 import { useState } from "react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
-import api from "../lib/api";
+import { Link } from "react-router-dom";
+import { Plus, AlertCircle, Loader2, Info, Sparkles, X } from "lucide-react";
+
+import api from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../components/ui/card";
+} from "@/components/ui/card";
 import { Plus, AlertCircle, Loader2, Info, Sparkles, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
