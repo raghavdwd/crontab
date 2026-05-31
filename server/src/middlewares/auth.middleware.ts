@@ -29,7 +29,12 @@ export const authMiddleware = (
       return;
     }
     const decoded = authService.verifyToken(token);
-    if (!decoded.id || decoded === null) {
+    if (
+      !decoded ||
+      typeof decoded !== "object" ||
+      !("id" in decoded) ||
+      !decoded.id
+    ) {
       res.status(401).json({ error: "Access denied. Invalid token." });
       return;
     }
