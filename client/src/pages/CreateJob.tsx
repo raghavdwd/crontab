@@ -30,6 +30,7 @@ export const CreateJob: React.FC = () => {
   const [body, setBody] = useState("");
   const [timeout, setTimeout_] = useState("");
   const [expectedStatus, setExpectedStatus] = useState("");
+  const [saveResponse, setSaveResponse] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,6 +64,7 @@ export const CreateJob: React.FC = () => {
       body: body.trim() || undefined,
       timeout: timeout ? Number(timeout) : undefined,
       expectedStatus: expectedStatus ? Number(expectedStatus) : undefined,
+      saveResponse,
     });
       navigate("/dashboard");
     } catch (err: any) {
@@ -113,10 +115,12 @@ export const CreateJob: React.FC = () => {
                   url={url}
                   error={error}
                   submitting={submitting}
+                  saveResponse={saveResponse}
                   onNameChange={setName}
                   onScheduleChange={setSchedule}
                   onUrlChange={setUrl}
                   onErrorChange={setError}
+                  onSaveResponseChange={setSaveResponse}
                 />
               </TabsContent>
               <TabsContent value="advanced">

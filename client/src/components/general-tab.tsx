@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AlertCircle, Loader2, Info, Sparkles, X } from "lucide-react";
+import { AlertCircle, Loader2, Info, Sparkles, X, History } from "lucide-react";
 
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Switch } from "./ui/switch";
 
 interface GeneralTabProps {
   name: string;
@@ -19,10 +20,12 @@ interface GeneralTabProps {
   url: string;
   error: string | null;
   submitting: boolean;
+  saveResponse: boolean;
   onNameChange: (value: string) => void;
   onScheduleChange: (value: string) => void;
   onUrlChange: (value: string) => void;
   onErrorChange: (value: string | null) => void;
+  onSaveResponseChange: (value: boolean) => void;
 }
 
 const GeneralTab = ({
@@ -31,10 +34,12 @@ const GeneralTab = ({
   url,
   error,
   submitting,
+  saveResponse,
   onNameChange,
   onScheduleChange,
   onUrlChange,
   onErrorChange,
+  onSaveResponseChange,
 }: GeneralTabProps) => {
   // AI generation state (local to this component)
   const [aiDescription, setAiDescription] = useState("");
@@ -251,6 +256,34 @@ const GeneralTab = ({
             <span className="font-medium text-black">GET</span> ping on this URL
             on the defined schedule.
           </p>
+        </div>
+
+        {/* Telemetry */}
+        <div className="rounded-xl border border-[#f1f1f4] bg-neutral-50/50 p-4 flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 h-7 w-7 shrink-0 rounded-lg bg-white border border-[#f1f1f4] flex items-center justify-center">
+              <History className="h-3.5 w-3.5 text-neutral-500 stroke-[1.5]" />
+            </div>
+            <div className="space-y-0.5">
+              <Label
+                htmlFor="save-response"
+                className="text-xs font-normal text-black cursor-pointer"
+              >
+                Save responses in job history
+              </Label>
+              <p className="text-[10px] font-light text-[#71717a] leading-relaxed max-w-md">
+                Persist the full response body (up to 64 KB) for every run, so
+                you can inspect what the endpoint returned from the logs tab.
+              </p>
+            </div>
+          </div>
+          <Switch
+            id="save-response"
+            checked={saveResponse}
+            onCheckedChange={onSaveResponseChange}
+            disabled={submitting}
+            className="data-checked:bg-black data-unchecked:bg-neutral-300 mt-1"
+          />
         </div>
       </CardContent>
 

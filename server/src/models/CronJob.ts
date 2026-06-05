@@ -17,6 +17,7 @@ export interface ICronJob extends Document {
   body?: string;
   timeout?: number;
   expectedStatus?: number;
+  saveResponse: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -37,6 +38,7 @@ const CronJobSchema: Schema = new Schema(
     body: { type: String },
     timeout: { type: Number },
     expectedStatus: { type: Number },
+    saveResponse: { type: Boolean, default: false },
   },
   {
     timestamps: true,

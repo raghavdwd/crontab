@@ -9,6 +9,8 @@ export interface ICronLog extends Document {
   exitCode?: number;
   stdout?: string;
   stderr?: string;
+  responseBody?: string;
+  bodyTruncated?: boolean;
   status: "running" | "success" | "failure";
 }
 
@@ -22,11 +24,17 @@ const CronLogSchema: Schema = new Schema(
     exitCode: { type: Number },
     stdout: { type: String },
     stderr: { type: String },
-    status: { type: String, enum: ["running", "success", "failure"], default: "running" },
+    responseBody: { type: String },
+    bodyTruncated: { type: Boolean, default: false },
+    status: {
+      type: String,
+      enum: ["running", "success", "failure"],
+      default: "running",
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 export default mongoose.model<ICronLog>("CronLog", CronLogSchema);
