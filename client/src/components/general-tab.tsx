@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { Plus, AlertCircle, Loader2, Info, Sparkles, X } from "lucide-react";
+import { AlertCircle, Loader2, Info, Sparkles, X } from "lucide-react";
 
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -289,34 +288,6 @@ const GeneralTab = ({
             </li>
           </ul>
         </div>
-      </div>
-
-      <div className="border-t border-[#f1f1f4] p-6 bg-white flex items-center justify-end gap-3">
-        <Link to="/dashboard">
-          <Button
-            variant="outline"
-            className="border-[#e4e4e7] text-neutral-600 hover:bg-neutral-50 font-light rounded-lg"
-          >
-            Cancel
-          </Button>
-        </Link>
-        <Button
-          type="submit"
-          disabled={submitting}
-          className="bg-black hover:bg-black/90 text-white font-light tracking-wide rounded-lg flex items-center gap-2 shadow-sm"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin text-white" />
-              Scheduling...
-            </>
-          ) : (
-            <>
-              <Plus className="h-4 w-4 stroke-[1.5]" />
-              Schedule Job
-            </>
-          )}
-        </Button>
       </div>
     </Card>
   );

@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2, Plus } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import GeneralTab from "@/components/general-tab";
 import AdvancedTab from "@/components/advanced-tab";
 import api from "@/lib/api";
@@ -21,7 +22,9 @@ export const CreateJob: React.FC = () => {
   const [schedule, setSchedule] = useState("");
   const [url, setUrl] = useState("");
   const [headers, setHeaders] = useState<Header[]>([
-    { id: 1, name: "", value: "", enabled: true },
+    { id: 1, name: "Content-Type", value: "application/json", enabled: true },
+    { id: 2, name: "Accept", value: "application/json", enabled: true },
+    { id: 3, name: "User-Agent", value: "crontab-client/1.0", enabled: true },
   ]);
   const [method, setMethod] = useState("GET");
   const [body, setBody] = useState("");
@@ -50,17 +53,17 @@ export const CreateJob: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const enabledHeaders = headers.filter((h) => h.enabled && h.name.trim());
-      await api.post("/cron", {
-        name: name.trim() || undefined,
-        schedule: schedule.trim(),
-        url: url.trim(),
-        headers: enabledHeaders.length > 0 ? enabledHeaders : undefined,
-        method: method !== "GET" ? method : undefined,
-        body: body.trim() || undefined,
-        timeout: timeout ? Number(timeout) : undefined,
-        expectedStatus: expectedStatus ? Number(expectedStatus) : undefined,
-      });
+    const savedHeaders = headers.filter((h) => h.name.trim());
+    await api.post("/cron", {
+      name: name.trim() || undefined,
+      schedule: schedule.trim(),
+      url: url.trim(),
+      headers: savedHeaders.length > 0 ? savedHeaders : undefined,
+      method: method !== "GET" ? method : undefined,
+      body: body.trim() || undefined,
+      timeout: timeout ? Number(timeout) : undefined,
+      expectedStatus: expectedStatus ? Number(expectedStatus) : undefined,
+    });
       navigate("/dashboard");
     } catch (err: any) {
       console.error(err);
@@ -123,6 +126,7 @@ export const CreateJob: React.FC = () => {
                   body={body}
                   timeout={timeout}
                   expectedStatus={expectedStatus}
+                  submitting={submitting}
                   onHeadersChange={setHeaders}
                   onMethodChange={setMethod}
                   onBodyChange={setBody}
@@ -131,6 +135,36 @@ export const CreateJob: React.FC = () => {
                 />
               </TabsContent>
             </Tabs>
+          </div>
+
+          <div className="mt-4 border border-[#f1f1f4] bg-white shadow-xs rounded-xl p-4 flex items-center justify-end gap-3">
+            <Link to="/dashboard">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting}
+                className="border-[#e4e4e7] text-neutral-600 hover:bg-neutral-50 font-light rounded-lg"
+              >
+                Cancel
+              </Button>
+            </Link>
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="bg-black hover:bg-black/90 text-white font-light tracking-wide rounded-lg flex items-center gap-2 shadow-sm"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                  Scheduling...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 stroke-[1.5]" />
+                  Schedule Job
+                </>
+              )}
+            </Button>
           </div>
         </form>
       </div>

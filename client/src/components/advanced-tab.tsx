@@ -7,9 +7,17 @@ import {
 } from "./ui/card";
 import { Textarea } from "./ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { Field, FieldLabel } from "./ui/field";
-import { CircleCheckBig } from "lucide-react";
+import { Label } from "./ui/label";
 import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import { CircleCheckBig, Circle, Plus, Trash2 } from "lucide-react";
 
 interface Header {
   id: number;
@@ -24,6 +32,7 @@ interface AdvancedTabProps {
   body: string;
   timeout: string;
   expectedStatus: string;
+  submitting?: boolean;
   onHeadersChange: (headers: Header[]) => void;
   onMethodChange: (method: string) => void;
   onBodyChange: (body: string) => void;
@@ -31,12 +40,20 @@ interface AdvancedTabProps {
   onExpectedStatusChange: (status: string) => void;
 }
 
+const inputClass =
+  "h-10 border-[#e4e4e7] bg-[#fafafa]/50 focus-visible:ring-1 focus-visible:ring-[#18181b] rounded-lg text-sm font-light placeholder:text-neutral-400";
+
+const labelClass = "text-xs font-normal text-neutral-600";
+
+const helperClass = "text-[10px] font-light text-[#71717a]";
+
 const AdvancedTab = ({
   headers,
   method,
   body,
   timeout,
   expectedStatus,
+  submitting = false,
   onHeadersChange,
   onMethodChange,
   onBodyChange,
@@ -78,123 +95,165 @@ const AdvancedTab = ({
           job's HTTP request.
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-4 pt-0">
+      <CardContent className="space-y-6 p-6 pt-0">
         <div className="space-y-1.5">
-          <Field>
-            <FieldLabel
-              htmlFor="custom-headers"
-              className="flex items-center gap-1"
-            >
-              Custom Headers
-            </FieldLabel>
+          <Label className={labelClass}>Custom Headers</Label>
+          <div className="space-y-2">
             {headers.map((header) => (
-              <div key={header.id} className="flex items-center gap-2">
-                <input
+              <div
+                key={header.id}
+                className={`flex items-center gap-2 ${header.enabled ? "" : "opacity-60"}`}
+              >
+                <Input
                   type="text"
                   placeholder="Header Name"
                   value={header.name}
                   onChange={(e) =>
                     updateHeader(header.id, "name", e.target.value)
                   }
-                  className="flex-1 rounded-md border border-[#e5e5e7] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#cbd5e1]"
+                  disabled={submitting}
+                  className={inputClass}
                 />
-                <input
+                <Input
                   type="text"
                   placeholder="Header Value"
                   value={header.value}
                   onChange={(e) =>
                     updateHeader(header.id, "value", e.target.value)
                   }
-                  className="flex-1 rounded-md border border-[#e5e5e7] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#cbd5e1]"
+                  disabled={submitting}
+                  className={inputClass}
                 />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       onClick={() => toggleEnable(header.id)}
-                      className={`rounded-md ${header.enabled ? "bg-green-300" : ""} cursor-pointer transition-colors`}
+                      disabled={submitting}
+                      aria-label={header.enabled ? "Disable header" : "Enable header"}
+                      className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
+                        header.enabled
+                          ? "bg-success-bg text-success border-success-border/60 hover:bg-success-bg/70"
+                          : "bg-muted text-muted-foreground border-transparent hover:bg-muted/70"
+                      }`}
                     >
-                      <CircleCheckBig width={22} height={22} />
+                      {header.enabled ? (
+                        <CircleCheckBig className="size-4" />
+                      ) : (
+                        <Circle className="size-4" />
+                      )}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>{header.enabled ? "Disable" : "Enable"} Header</p>
                   </TooltipContent>
                 </Tooltip>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onHeadersChange(headers.filter((h) => h.id !== header.id))
-                  }
-                  className="bg-red-500 px-3 py-2 text-sm border-2 border-red-700 rounded-md text-black transition-colors"
-                >
-                  Remove
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon-sm"
+                      onClick={() =>
+                        onHeadersChange(
+                          headers.filter((h) => h.id !== header.id),
+                        )
+                      }
+                      disabled={submitting}
+                      aria-label="Remove header"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Remove Header</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             ))}
-            <button
-              type="button"
-              onClick={duplicateHeaderField}
-              className="mt-2 rounded-md bg-gray-950 px-3 py-2 text-sm text-white transition-colors"
-            >
-              Add Header
-            </button>
-          </Field>
+          </div>
+          <Button
+            type="button"
+            onClick={duplicateHeaderField}
+            disabled={submitting}
+            className="mt-2 h-9 gap-1.5 bg-black hover:bg-black/90 text-white font-light tracking-wide rounded-lg shadow-sm"
+          >
+            <Plus className="size-4 stroke-[1.5]" />
+            Add Header
+          </Button>
         </div>
-        <div className="space-y-1.5 mt-3">
-          <Field>
-            <FieldLabel htmlFor="select-method">HTTP Method</FieldLabel>
-            <select
+
+        <div className="space-y-1.5">
+          <Label htmlFor="select-method" className={labelClass}>
+            HTTP Method
+          </Label>
+          <Select value={method} onValueChange={onMethodChange} disabled={submitting}>
+            <SelectTrigger
               id="select-method"
-              value={method}
-              onChange={(e) => onMethodChange(e.target.value)}
-              className="w-full rounded-md border border-[#e5e5e7] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#cbd5e1]"
+              className={`${inputClass} w-full justify-between font-light`}
             >
-              <option value="GET">GET</option>
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="DELETE">DELETE</option>
-            </select>
-          </Field>
+              <SelectValue placeholder="Select method" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GET">GET</SelectItem>
+              <SelectItem value="POST">POST</SelectItem>
+              <SelectItem value="PUT">PUT</SelectItem>
+              <SelectItem value="DELETE">DELETE</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className={helperClass}>HTTP method for the request.</p>
         </div>
-        <div className="space-y-1.5 mt-3">
-          <Field>
-            <FieldLabel htmlFor="textarea-message">Request Body</FieldLabel>
-            <Textarea
-              cols={30}
-              rows={10}
-              id="textarea-message"
-              placeholder="Type your request body here."
-              value={body}
-              onChange={(e) => onBodyChange(e.target.value)}
-            />
-          </Field>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="textarea-message" className={labelClass}>
+            Request Body
+          </Label>
+          <Textarea
+            id="textarea-message"
+            placeholder="Type your request body here."
+            value={body}
+            onChange={(e) => onBodyChange(e.target.value)}
+            disabled={submitting}
+            rows={10}
+            className={`${inputClass} h-auto py-2.5 font-light`}
+          />
+          <p className={helperClass}>
+            Only used for POST, PUT, DELETE. JSON or raw text.
+          </p>
         </div>
-        <div className="space-y-1.5 mt-3">
-          <Field>
-            <FieldLabel htmlFor="timeout">Request Timeout</FieldLabel>
-            <Input
-              id="timeout"
-              type="number"
-              placeholder="e.g. 5000 (milliseconds)"
-              value={timeout}
-              onChange={(e) => onTimeoutChange(e.target.value)}
-            />
-          </Field>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="timeout" className={labelClass}>
+            Request Timeout
+          </Label>
+          <Input
+            id="timeout"
+            type="number"
+            placeholder="e.g. 5000 (milliseconds)"
+            value={timeout}
+            onChange={(e) => onTimeoutChange(e.target.value)}
+            disabled={submitting}
+            className={inputClass}
+          />
+          <p className={helperClass}>
+            Request timeout in milliseconds. Defaults to 5000.
+          </p>
         </div>
-        <div className="space-y-1.5 mt-3">
-          <Field>
-            <FieldLabel htmlFor="expected-status">
-              Expected Status Code
-            </FieldLabel>
-            <Input
-              id="expected-status"
-              type="number"
-              placeholder="e.g. 200"
-              value={expectedStatus}
-              onChange={(e) => onExpectedStatusChange(e.target.value)}
-            />
-          </Field>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="expected-status" className={labelClass}>
+            Expected Status Code
+          </Label>
+          <Input
+            id="expected-status"
+            type="number"
+            placeholder="e.g. 200"
+            value={expectedStatus}
+            onChange={(e) => onExpectedStatusChange(e.target.value)}
+            disabled={submitting}
+            className={inputClass}
+          />
+          <p className={helperClass}>Defaults to 200.</p>
         </div>
       </CardContent>
     </Card>
