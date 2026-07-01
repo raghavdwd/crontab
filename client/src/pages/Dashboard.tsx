@@ -317,22 +317,22 @@ export const Dashboard: React.FC = () => {
                 <Table>
                   <TableHeader className="bg-neutral-50/50">
                     <TableRow className="border-b border-[#f1f1f4] hover:bg-transparent">
-                      <TableHead className="font-normal text-neutral-500 text-xs w-50 h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-48 h-11 px-6">
                         Name
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-35 h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-36 h-11 px-6">
                         Schedule
                       </TableHead>
                       <TableHead className="font-normal text-neutral-500 text-xs h-11 px-6">
                         Target Hook Endpoint
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-30 h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                         Detail View
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-30 h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                         Status
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-30 h-11 px-6 text-right">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6 text-right">
                         Actions
                       </TableHead>
                     </TableRow>
@@ -354,7 +354,7 @@ export const Dashboard: React.FC = () => {
                               {job.schedule}
                             </div>
                           </TableCell>
-                          <TableCell className="px-6 py-4 font-mono text-xs text-[#71717a] max-w-75 truncate">
+                          <TableCell className="px-6 py-4 font-mono text-xs text-[#71717a] max-w-72 truncate">
                             <span className="flex items-center gap-1.5">
                               <span className="text-[10px] uppercase font-bold text-neutral-400">
                                 GET
@@ -455,22 +455,22 @@ export const Dashboard: React.FC = () => {
                   <Table>
                     <TableHeader className="bg-neutral-50/50">
                       <TableRow className="border-b border-[#f1f1f4] hover:bg-transparent">
-                        <TableHead className="font-normal text-neutral-500 text-xs w-30 h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                           Timestamp
                         </TableHead>
-                        <TableHead className="font-normal text-neutral-500 text-xs w-30 h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                           Name
                         </TableHead>
-                        <TableHead className="font-normal text-neutral-500 text-xs w-25 h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-24 h-11 px-6">
                           Status
                         </TableHead>
-                        <TableHead className="font-normal text-neutral-500 text-xs w-25 h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-24 h-11 px-6">
                           Latency
                         </TableHead>
                         <TableHead className="font-normal text-neutral-500 text-xs h-11 px-6">
                           Execution Shell Output
                         </TableHead>
-                        <TableHead className="font-normal text-neutral-500 text-xs w-25 h-11 px-6 text-right">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-24 h-11 px-6 text-right">
                           Body
                         </TableHead>
                       </TableRow>
@@ -517,7 +517,7 @@ export const Dashboard: React.FC = () => {
                             <TableCell className="px-6 py-3 text-xs text-neutral-600 font-mono">
                               {latencyMs !== null ? `${latencyMs}ms` : "—"}
                             </TableCell>
-                            <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-100 truncate">
+                            <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-96 truncate">
                               {shellOutput || (
                                 <span className="italic text-neutral-300">
                                   No output returned

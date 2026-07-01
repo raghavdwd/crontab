@@ -22,8 +22,10 @@ export const buildCurlCommand = (
 ): string => {
   const parts: string[] = ["curl", "-s"];
 
+  const shQuote = (s: string) => "'" + s.replace(/'/g, `'"'"'`) + "'";
+
   if (saveResponse && bodyFilePath) {
-    parts.push("-o", `'${bodyFilePath}'`);
+    parts.push("-o", shQuote(bodyFilePath));
   } else {
     parts.push("-o", "/dev/null");
   }
@@ -34,8 +36,6 @@ export const buildCurlCommand = (
   if (httpMethod !== "GET") {
     parts.push("-X", httpMethod);
   }
-
-  const shQuote = (s: string) => "'" + s.replace(/'/g, `'"'"'`) + "'";
 
   if (headers) {
     for (const h of headers) {
