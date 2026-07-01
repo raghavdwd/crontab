@@ -24,6 +24,7 @@ export const handleCreateJob = async (
       body,
       timeout,
       expectedStatus,
+      saveResponse,
     } = req.body;
 
     if (!schedule || !url) {
@@ -33,13 +34,14 @@ export const handleCreateJob = async (
       return;
     }
 
-    const command = buildCurlCommand(url, method, headers, body, timeout);
+    const command = buildCurlCommand(url, method, headers, body, timeout, !!saveResponse);
     const job = await cronService.createJob(userId, name, schedule, command, {
       method,
       headers,
       body,
       timeout,
       expectedStatus,
+      saveResponse: !!saveResponse,
     });
     res.status(201).json({
       message: "Cron job created and scheduled successfully.",
@@ -96,6 +98,7 @@ export const handleUpdateJob = async (
       timeout,
       expectedStatus,
       isActive,
+      saveResponse,
     } = req.body;
 
     const shouldRebuildCommand =
@@ -103,7 +106,8 @@ export const handleUpdateJob = async (
       method !== undefined ||
       headers !== undefined ||
       body !== undefined ||
-      timeout !== undefined;
+      timeout !== undefined ||
+      saveResponse !== undefined;
 
     let command: string | undefined;
     if (shouldRebuildCommand) {
@@ -113,7 +117,7 @@ export const handleUpdateJob = async (
         });
         return;
       }
-      command = buildCurlCommand(url, method, headers, body, timeout);
+      command = buildCurlCommand(url, method, headers, body, timeout, !!saveResponse);
     }
     const job = await cronService.updateJob(userId, id, {
       name,
@@ -125,6 +129,7 @@ export const handleUpdateJob = async (
       body,
       timeout,
       expectedStatus,
+      saveResponse,
     });
     res.status(200).json({
       message: "Cron job updated successfully.",

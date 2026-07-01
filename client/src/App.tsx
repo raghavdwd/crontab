@@ -1,4 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -17,7 +22,7 @@ function App() {
       <Router>
         <div className="flex flex-col min-h-screen bg-[#fafafa] font-sans antialiased text-[#09090b]">
           <Navbar />
-          <main className="flex-grow">
+          <main className="grow">
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Landing />} />

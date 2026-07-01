@@ -1,5 +1,7 @@
 import CronJob, { type ICronJob } from "../models/CronJob";
 import CronLog from "../models/CronLog";
+import { saveResponseBodyToFile } from "../utils/save-response-body";
+import { unlink } from "node:fs/promises";
 
 class CronService {
   private static instance: CronService;
@@ -20,14 +22,27 @@ class CronService {
     console.log("Initializing Cron Service...");
     try {
       const activeJobsFromDb = await CronJob.find({ isActive: true });
-      console.log(`Found ${activeJobsFromDb.length} active cron jobs to schedule.`);
+      console.log(
+        `Found ${activeJobsFromDb.length} active cron jobs to schedule.`,
+      );
 
       for (const job of activeJobsFromDb) {
         try {
-          this.scheduleCronJob(job._id.toString(), job.name!, job.schedule, job.command);
-          console.log(`Scheduled job: ${job.name || job._id} (${job.schedule})`);
+          this.scheduleCronJob(
+            job._id.toString(),
+            job.name!,
+            job.schedule,
+            job.command,
+            job.saveResponse,
+          );
+          console.log(
+            `Scheduled job: ${job.name || job._id} (${job.schedule})`,
+          );
         } catch (err: any) {
-          console.error(`Failed to schedule job ${job._id} on initialization:`, err.message);
+          console.error(
+            `Failed to schedule job ${job._id} on initialization:`,
+            err.message,
+          );
         }
       }
     } catch (error) {
@@ -38,7 +53,13 @@ class CronService {
   /**
    * Schedules a cron job in-memory using Bun.cron.
    */
-  scheduleCronJob(jobId: string, jobName: string, schedule: string, command: string): boolean {
+  scheduleCronJob(
+    jobId: string,
+    jobName: string,
+    schedule: string,
+    command: string,
+    saveResponse = false,
+  ): boolean {
     const stringJobId = jobId.toString();
 
     // Stop the existing in-memory job if there is one
@@ -46,13 +67,16 @@ class CronService {
 
     try {
       const job = Bun.cron(schedule, async () => {
-        await this.executeJob(stringJobId, jobName, command);
+        await this.executeJob(stringJobId, jobName, command, saveResponse);
       });
 
       this.activeJobs.set(stringJobId, job);
       return true;
     } catch (error) {
-      console.error(`Failed to schedule cron job ${stringJobId} with schedule "${schedule}":`, error);
+      console.error(
+        `Failed to schedule cron job ${stringJobId} with schedule "${schedule}":`,
+        error,
+      );
       throw error;
     }
   }
@@ -79,8 +103,16 @@ class CronService {
   /**
    * Executes the cron job command as a child process and logs the run to the database.
    */
-  async executeJob(jobId: string, jobName: string, command: string) {
+  async executeJob(
+    jobId: string,
+    jobName: string,
+    command: string,
+    saveResponse = false,
+  ) {
     const triggerTime = new Date();
+    const bodyFilePath = saveResponse
+      ? `/tmp/cron-body-${jobId}-${Date.now()}.txt`
+      : undefined;
     let logEntry;
 
     try {
@@ -97,8 +129,13 @@ class CronService {
     }
 
     try {
-      // 2. Spawn the process inside a shell
-      const proc = Bun.spawn(["sh", "-c", command], {
+      // 2. If saveResponse is on, inject the body file path into the stored curl command
+      let cmd = command;
+      if (saveResponse && bodyFilePath) {
+        cmd = cmd.replace("-o /dev/null", `-o '${bodyFilePath}'`);
+      }
+
+      const proc = Bun.spawn(["sh", "-c", cmd], {
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -109,17 +146,40 @@ class CronService {
       const stdout = await new Response(proc.stdout).text();
       const stderr = await new Response(proc.stderr).text();
 
-      // 3. Update the log entry with results
+      // 3. If saveResponse is on, read the body file, truncate, then clean up
+      let responseBody: string | undefined;
+      let bodyTruncated: boolean | undefined;
+      if (saveResponse && bodyFilePath) {
+        const result = await saveResponseBodyToFile(bodyFilePath);
+        responseBody = result.responseBody;
+        bodyTruncated = result.bodyTruncated;
+      }
+
+      // 4. Update the log entry with results
       if (logEntry) {
         logEntry.endTime = endTime;
         logEntry.exitCode = exitCode;
         logEntry.stdout = stdout;
         logEntry.stderr = stderr;
+        if (responseBody !== undefined) {
+          logEntry.responseBody = responseBody;
+          logEntry.bodyTruncated = bodyTruncated;
+        }
         logEntry.status = exitCode === 0 ? "success" : "failure";
         await logEntry.save();
       }
     } catch (error: any) {
-      console.error(`[Job ${jobId}] Error executing command "${command}":`, error);
+      console.error(
+        `[Job ${jobId}] Error executing command "${command}":`,
+        error,
+      );
+      if (bodyFilePath) {
+        try {
+          await unlink(bodyFilePath);
+        } catch {
+          // ignore — best effort cleanup
+        }
+      }
       if (logEntry) {
         logEntry.endTime = new Date();
         logEntry.exitCode = -1;
@@ -144,6 +204,7 @@ class CronService {
       body?: string;
       timeout?: number;
       expectedStatus?: number;
+      saveResponse?: boolean;
     },
   ): Promise<ICronJob> {
     // 1. Save to the database
@@ -158,11 +219,18 @@ class CronService {
       body: advanced?.body,
       timeout: advanced?.timeout,
       expectedStatus: advanced?.expectedStatus,
+      saveResponse: advanced?.saveResponse ?? false,
     });
 
     try {
       // 2. Schedule the job in-memory
-      this.scheduleCronJob(job._id.toString(), name || "unknown", schedule, command);
+      this.scheduleCronJob(
+        job._id.toString(),
+        name || "unknown",
+        schedule,
+        command,
+        job.saveResponse,
+      );
     } catch (err) {
       // If scheduling fails (e.g. invalid cron pattern), roll back database entry
       await CronJob.findByIdAndDelete(job._id);
@@ -188,7 +256,8 @@ class CronService {
       body?: string;
       timeout?: number;
       expectedStatus?: number;
-    }
+      saveResponse?: boolean;
+    },
   ): Promise<ICronJob | null> {
     // Find job belonging ONLY to this user
     const job = await CronJob.findOne({ _id: jobId, userId });
@@ -206,6 +275,7 @@ class CronService {
     const previousBody = job.body;
     const previousTimeout = job.timeout;
     const previousExpectedStatus = job.expectedStatus;
+    const previousSaveResponse = job.saveResponse;
 
     // Apply updates to DB object
     if (updateData.name !== undefined) job.name = updateData.name;
@@ -216,13 +286,22 @@ class CronService {
     if (updateData.headers !== undefined) job.headers = updateData.headers;
     if (updateData.body !== undefined) job.body = updateData.body;
     if (updateData.timeout !== undefined) job.timeout = updateData.timeout;
-    if (updateData.expectedStatus !== undefined) job.expectedStatus = updateData.expectedStatus;
+    if (updateData.expectedStatus !== undefined)
+      job.expectedStatus = updateData.expectedStatus;
+    if (updateData.saveResponse !== undefined)
+      job.saveResponse = updateData.saveResponse;
 
     await job.save();
 
     try {
       if (job.isActive) {
-        this.scheduleCronJob(job._id.toString(), job.name || "unknown", job.schedule, job.command);
+        this.scheduleCronJob(
+          job._id.toString(),
+          job.name || "unknown",
+          job.schedule,
+          job.command,
+          job.saveResponse,
+        );
       } else {
         this.stopCronJob(job._id.toString());
       }
@@ -240,7 +319,8 @@ class CronService {
           body: previousBody,
           timeout: previousTimeout,
           expectedStatus: previousExpectedStatus,
-        }
+          saveResponse: previousSaveResponse,
+        },
       );
       throw error;
     }
@@ -272,10 +352,15 @@ class CronService {
   /**
    * Database Operations: Retrieves logs belonging to a specific user's jobs with pagination.
    */
-  async getLogs(userId: string, jobId?: string, page = 1, limit = 10): Promise<{ logs: any[]; total: number }> {
+  async getLogs(
+    userId: string,
+    jobId?: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{ logs: any[]; total: number }> {
     // 1. Fetch only jobs owned by this user
     const userJobs = await CronJob.find({ userId }).select("_id");
-    const jobIds = userJobs.map(j => j._id);
+    const jobIds = userJobs.map((j) => j._id);
 
     // 2. Query logs filtered by the user's job IDs
     const query: any = { jobId: { $in: jobIds } };
@@ -290,7 +375,7 @@ class CronService {
         .sort({ triggerTime: -1 })
         .skip((page - 1) * limit)
         .limit(limit),
-      CronLog.countDocuments(query)
+      CronLog.countDocuments(query),
     ]);
 
     return { logs, total };

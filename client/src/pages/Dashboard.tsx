@@ -37,9 +37,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  Eye,
 } from "lucide-react";
-import { Modal } from "@/components/Modal";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
+import ResponseBodyModal from "@/components/ResponseBodyModal";
+import CronJobDetailModal from "@/components/CronJobDetailModal";
 
 interface CronJob {
   _id: string;
@@ -47,6 +48,12 @@ interface CronJob {
   schedule: string;
   command: string;
   isActive: boolean;
+  method?: string;
+  headers?: { name: string; value: string; enabled: boolean }[];
+  body?: string;
+  timeout?: number;
+  expectedStatus?: number;
+  saveResponse: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -61,6 +68,8 @@ interface CronLog {
   exitCode?: number;
   stdout?: string;
   stderr?: string;
+  responseBody?: string;
+  bodyTruncated?: boolean;
   status: "running" | "success" | "failure";
 }
 
@@ -72,7 +81,8 @@ export const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<CronJob | null>(null);
+  const [selectedLog, setSelectedLog] = useState<CronLog | null>(null);
   const logsPerPage = 10;
 
   const fetchDashboardData = async () => {
@@ -159,15 +169,7 @@ export const Dashboard: React.FC = () => {
       ? Math.round((successLogsCount / completedLogs.length) * 100)
       : 100;
 
-  /**
-   * We will open a modal when user will click on the endpoint icon in the jobs table, which will show the full curl command and endpoint URL in a more readable format, along with a copy button for easy copying of the command.
-   * This is to improve the UX as some URLs might be long and get truncated in the table view. The modal will provide a clear and focused view of the command details.
-   * Also we will display an Area Chart in the modal to show the historical latency of the selected cron job based on the logs data, giving users insights into the performance of their scheduled tasks over time.
-   */
 
-  const handleModalOpen = () => {
-    setIsModalOpen(true);
-  };
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#fafafa] py-12 px-6">
@@ -264,9 +266,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         )}
-        {/* Modal */}
-        {isModalOpen && <Modal />}
-
         {/* Tab section */}
         <Tabs defaultValue="jobs" className="space-y-6">
           <TabsList className="bg-neutral-100 p-1 rounded-xl h-10 border border-[#f1f1f4] inline-flex">
@@ -318,22 +317,22 @@ export const Dashboard: React.FC = () => {
                 <Table>
                   <TableHeader className="bg-neutral-50/50">
                     <TableRow className="border-b border-[#f1f1f4] hover:bg-transparent">
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[200px] h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-48 h-11 px-6">
                         Name
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[140px] h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-36 h-11 px-6">
                         Schedule
                       </TableHead>
                       <TableHead className="font-normal text-neutral-500 text-xs h-11 px-6">
                         Target Hook Endpoint
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-30 h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                         Detail View
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                         Status
                       </TableHead>
-                      <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6 text-right">
+                      <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6 text-right">
                         Actions
                       </TableHead>
                     </TableRow>
@@ -355,7 +354,7 @@ export const Dashboard: React.FC = () => {
                               {job.schedule}
                             </div>
                           </TableCell>
-                          <TableCell className="px-6 py-4 font-mono text-xs text-[#71717a] max-w-[300px] truncate">
+                          <TableCell className="px-6 py-4 font-mono text-xs text-[#71717a] max-w-72 truncate">
                             <span className="flex items-center gap-1.5">
                               <span className="text-[10px] uppercase font-bold text-neutral-400">
                                 GET
@@ -364,15 +363,15 @@ export const Dashboard: React.FC = () => {
                             </span>
                           </TableCell>
                           <TableCell className="px-6 py-4">
-                            <span onClick={handleModalOpen}>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline">
-                                    <ExternalLink className="h-3.5 w-3.5 stroke-[1.5]" />
-                                  </Button>
-                                </DialogTrigger>
-                              </Dialog>
-                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setSelectedJob(job)}
+                              title="View details"
+                              className="border-[#e4e4e7] text-neutral-500 hover:text-black h-8 w-8 rounded-lg"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 stroke-[1.5]" />
+                            </Button>
                           </TableCell>
                           <TableCell className="px-6 py-4">
                             <button
@@ -456,20 +455,23 @@ export const Dashboard: React.FC = () => {
                   <Table>
                     <TableHeader className="bg-neutral-50/50">
                       <TableRow className="border-b border-[#f1f1f4] hover:bg-transparent">
-                        <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                           Timestamp
                         </TableHead>
-                        <TableHead className="font-normal text-neutral-500 text-xs w-[120px] h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-28 h-11 px-6">
                           Name
                         </TableHead>
-                        <TableHead className="font-normal text-neutral-500 text-xs w-[100px] h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-24 h-11 px-6">
                           Status
                         </TableHead>
-                        <TableHead className="font-normal text-neutral-500 text-xs w-[100px] h-11 px-6">
+                        <TableHead className="font-normal text-neutral-500 text-xs w-24 h-11 px-6">
                           Latency
                         </TableHead>
                         <TableHead className="font-normal text-neutral-500 text-xs h-11 px-6">
                           Execution Shell Output
+                        </TableHead>
+                        <TableHead className="font-normal text-neutral-500 text-xs w-24 h-11 px-6 text-right">
+                          Body
                         </TableHead>
                       </TableRow>
                     </TableHeader>
@@ -515,10 +517,32 @@ export const Dashboard: React.FC = () => {
                             <TableCell className="px-6 py-3 text-xs text-neutral-600 font-mono">
                               {latencyMs !== null ? `${latencyMs}ms` : "—"}
                             </TableCell>
-                            <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-[400px] truncate">
+                            <TableCell className="px-6 py-3 font-mono text-[11px] text-neutral-600 max-w-96 truncate">
                               {shellOutput || (
                                 <span className="italic text-neutral-300">
                                   No output returned
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell className="px-6 py-3 text-right">
+                              {log.responseBody ? (
+                                <button
+                                  onClick={() => setSelectedLog(log)}
+                                  title={
+                                    log.bodyTruncated
+                                      ? "View response body (truncated to 64 KB)"
+                                      : "View response body"
+                                  }
+                                  className="inline-flex items-center gap-1.5 text-[11px] font-light text-neutral-600 hover:text-black transition-colors"
+                                >
+                                  <Eye className="h-3.5 w-3.5 stroke-[1.5]" />
+                                  {log.bodyTruncated && (
+                                    <span className="text-amber-600">…</span>
+                                  )}
+                                </button>
+                              ) : (
+                                <span className="text-neutral-300 text-[11px]">
+                                  —
                                 </span>
                               )}
                             </TableCell>
@@ -559,6 +583,23 @@ export const Dashboard: React.FC = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <ResponseBodyModal
+        open={!!selectedLog}
+        onOpenChange={(open) => !open && setSelectedLog(null)}
+        jobName={selectedLog?.jobName}
+        triggerTime={selectedLog?.triggerTime}
+        statusCode={selectedLog?.stdout}
+        body={selectedLog?.responseBody}
+        truncated={selectedLog?.bodyTruncated}
+      />
+
+      <CronJobDetailModal
+        open={!!selectedJob}
+        onOpenChange={(open) => !open && setSelectedJob(null)}
+        job={selectedJob}
+        onJobUpdated={fetchDashboardData}
+      />
     </div>
   );
 };
