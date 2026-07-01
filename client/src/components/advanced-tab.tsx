@@ -102,7 +102,7 @@ const AdvancedTab = ({
             {headers.map((header) => (
               <div
                 key={header.id}
-                className={`flex items-center gap-2 ${header.enabled ? "" : "opacity-60"}`}
+                className={`flex items-center gap-2 ${header.enabled ? "" : "opacity-50"}`}
               >
                 <Input
                   type="text"
@@ -111,7 +111,7 @@ const AdvancedTab = ({
                   onChange={(e) =>
                     updateHeader(header.id, "name", e.target.value)
                   }
-                  disabled={submitting}
+                  disabled={submitting || !header.enabled}
                   className={inputClass}
                 />
                 <Input
@@ -121,7 +121,7 @@ const AdvancedTab = ({
                   onChange={(e) =>
                     updateHeader(header.id, "value", e.target.value)
                   }
-                  disabled={submitting}
+                  disabled={submitting || !header.enabled}
                   className={inputClass}
                 />
                 <Tooltip>
@@ -130,7 +130,9 @@ const AdvancedTab = ({
                       type="button"
                       onClick={() => toggleEnable(header.id)}
                       disabled={submitting}
-                      aria-label={header.enabled ? "Disable header" : "Enable header"}
+                      aria-label={
+                        header.enabled ? "Disable header" : "Enable header"
+                      }
                       className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border transition-colors cursor-pointer ${
                         header.enabled
                           ? "bg-success-bg text-success border-success-border/60 hover:bg-success-bg/70"
@@ -187,7 +189,11 @@ const AdvancedTab = ({
           <Label htmlFor="select-method" className={labelClass}>
             HTTP Method
           </Label>
-          <Select value={method} onValueChange={onMethodChange} disabled={submitting}>
+          <Select
+            value={method}
+            onValueChange={onMethodChange}
+            disabled={submitting}
+          >
             <SelectTrigger
               id="select-method"
               className={`${inputClass} w-full justify-between font-light`}

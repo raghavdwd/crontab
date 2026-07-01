@@ -129,8 +129,13 @@ class CronService {
     }
 
     try {
-      // 2. Spawn the process inside a shell
-      const proc = Bun.spawn(["sh", "-c", command], {
+      // 2. If saveResponse is on, inject the body file path into the stored curl command
+      let cmd = command;
+      if (saveResponse && bodyFilePath) {
+        cmd = cmd.replace("-o /dev/null", `-o '${bodyFilePath}'`);
+      }
+
+      const proc = Bun.spawn(["sh", "-c", cmd], {
         stdout: "pipe",
         stderr: "pipe",
       });
@@ -145,7 +150,9 @@ class CronService {
       let responseBody: string | undefined;
       let bodyTruncated: boolean | undefined;
       if (saveResponse && bodyFilePath) {
-        await saveResponseBodyToFile(stdout, bodyFilePath);
+        const result = await saveResponseBodyToFile(bodyFilePath);
+        responseBody = result.responseBody;
+        bodyTruncated = result.bodyTruncated;
       }
 
       // 4. Update the log entry with results

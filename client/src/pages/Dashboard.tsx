@@ -39,9 +39,8 @@ import {
   ExternalLink,
   Eye,
 } from "lucide-react";
-import { Modal } from "@/components/Modal";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 import ResponseBodyModal from "@/components/ResponseBodyModal";
+import CronJobDetailModal from "@/components/CronJobDetailModal";
 
 interface CronJob {
   _id: string;
@@ -49,6 +48,12 @@ interface CronJob {
   schedule: string;
   command: string;
   isActive: boolean;
+  method?: string;
+  headers?: { name: string; value: string; enabled: boolean }[];
+  body?: string;
+  timeout?: number;
+  expectedStatus?: number;
+  saveResponse: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,7 +81,7 @@ export const Dashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<CronJob | null>(null);
   const [selectedLog, setSelectedLog] = useState<CronLog | null>(null);
   const logsPerPage = 10;
 
@@ -164,15 +169,7 @@ export const Dashboard: React.FC = () => {
       ? Math.round((successLogsCount / completedLogs.length) * 100)
       : 100;
 
-  /**
-   * We will open a modal when user will click on the endpoint icon in the jobs table, which will show the full curl command and endpoint URL in a more readable format, along with a copy button for easy copying of the command.
-   * This is to improve the UX as some URLs might be long and get truncated in the table view. The modal will provide a clear and focused view of the command details.
-   * Also we will display an Area Chart in the modal to show the historical latency of the selected cron job based on the logs data, giving users insights into the performance of their scheduled tasks over time.
-   */
 
-  const handleModalOpen = () => {
-    setIsModalOpen(true);
-  };
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#fafafa] py-12 px-6">
@@ -269,9 +266,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         )}
-        {/* Modal */}
-        {isModalOpen && <Modal />}
-
         {/* Tab section */}
         <Tabs defaultValue="jobs" className="space-y-6">
           <TabsList className="bg-neutral-100 p-1 rounded-xl h-10 border border-[#f1f1f4] inline-flex">
@@ -369,15 +363,15 @@ export const Dashboard: React.FC = () => {
                             </span>
                           </TableCell>
                           <TableCell className="px-6 py-4">
-                            <span onClick={handleModalOpen}>
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="outline">
-                                    <ExternalLink className="h-3.5 w-3.5 stroke-[1.5]" />
-                                  </Button>
-                                </DialogTrigger>
-                              </Dialog>
-                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setSelectedJob(job)}
+                              title="View details"
+                              className="border-[#e4e4e7] text-neutral-500 hover:text-black h-8 w-8 rounded-lg"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5 stroke-[1.5]" />
+                            </Button>
                           </TableCell>
                           <TableCell className="px-6 py-4">
                             <button
@@ -598,6 +592,13 @@ export const Dashboard: React.FC = () => {
         statusCode={selectedLog?.stdout}
         body={selectedLog?.responseBody}
         truncated={selectedLog?.bodyTruncated}
+      />
+
+      <CronJobDetailModal
+        open={!!selectedJob}
+        onOpenChange={(open) => !open && setSelectedJob(null)}
+        job={selectedJob}
+        onJobUpdated={fetchDashboardData}
       />
     </div>
   );

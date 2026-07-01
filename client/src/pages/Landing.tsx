@@ -54,7 +54,7 @@ export const Landing: React.FC = () => {
         <div className="flex flex-col items-center text-center">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-[#e4e4e7] bg-white px-3 py-1 text-xs font-light text-[#71717a] shadow-xs">
             <Sparkles className="h-3.5 w-3.5 text-black stroke-[1.5]" />
-            <span>Introducing crontab.sh v1.0</span>
+            <span>v2.0 is Live Now</span>
           </div>
 
           <h1 className="mt-8 max-w-3xl font-sans text-4xl font-normal leading-[1.15] tracking-tight sm:text-5xl md:text-6xl text-black">
