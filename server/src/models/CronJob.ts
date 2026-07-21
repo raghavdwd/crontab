@@ -6,6 +6,12 @@ export interface IHeader {
   enabled: boolean;
 }
 
+export interface IAlertConfig {
+  type: "email" | "webhook";
+  target: string;
+  enabled: boolean;
+}
+
 export interface ICronJob extends Document {
   userId: mongoose.Types.ObjectId;
   name?: string;
@@ -18,6 +24,7 @@ export interface ICronJob extends Document {
   timeout?: number;
   expectedStatus?: number;
   saveResponse: boolean;
+  alertConfig?: IAlertConfig;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +46,14 @@ const CronJobSchema: Schema = new Schema(
     timeout: { type: Number },
     expectedStatus: { type: Number },
     saveResponse: { type: Boolean, default: false },
+    alertConfig: {
+      type: {
+        type: String,
+        enum: ["email", "webhook"],
+      },
+      target: { type: String, trim: true },
+      enabled: { type: Boolean, default: false },
+    },
   },
   {
     timestamps: true,
