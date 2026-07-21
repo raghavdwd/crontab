@@ -372,6 +372,45 @@ const CronJobDetailModal = ({
                     </p>
                   </div>
 
+                  <div>
+                    <Label className="text-[10px] font-normal text-neutral-500 uppercase tracking-wider">
+                      Next 5 Executions
+                    </Label>
+                    <div className="mt-1 space-y-0.5">
+                      {getNextRunTimes(job.schedule).length > 0 ? (
+                        getNextRunTimes(job.schedule).map((d, i) => (
+                          <p key={i} className="text-xs font-mono text-neutral-600">
+                            {d.toLocaleString()}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-xs font-light italic text-neutral-400">
+                          Invalid cron expression
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      onClick={handleRunNow}
+                      disabled={runningNow}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-light tracking-wide rounded-lg flex items-center gap-2 shadow-sm text-xs h-9"
+                    >
+                      {runningNow ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin stroke-[1.5]" />
+                          Running...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 stroke-[1.5]" />
+                          Run Now
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
                   <div className="flex items-center gap-3">
                     <History className="h-4 w-4 text-neutral-400 stroke-[1.5]" />
                     <div>
@@ -595,6 +634,24 @@ const CronJobDetailModal = ({
                       <Badge className="bg-neutral-100 text-neutral-500 border-neutral-200 font-light text-[10px] rounded-full px-2 py-0">
                         Off
                       </Badge>
+                    )}
+                  </div>
+
+                  <div className="border-t border-[#f1f1f4] pt-4 mt-4">
+                    <Label className="text-[10px] font-normal text-neutral-500 uppercase tracking-wider">
+                      Failure Alerts
+                    </Label>
+                    {job.alertConfig?.enabled ? (
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge className="bg-violet-50 text-violet-700 border-violet-100 font-light text-[10px] rounded-full px-2 py-0">
+                          {job.alertConfig.type === "email" ? "📧 Email" : "🔗 Webhook"}
+                        </Badge>
+                        <span className="text-xs font-mono text-neutral-600">
+                          {job.alertConfig.target}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs font-light italic text-neutral-400">No alerts configured</p>
                     )}
                   </div>
                 </>
