@@ -1,6 +1,8 @@
 import CronJob, { type ICronJob, type IAlertConfig } from "../models/CronJob";
 import CronLog from "../models/CronLog";
+import User from "../models/User";
 import { readAndCleanupResponseBody } from "../utils/save-response-body";
+import { decrypt } from "../utils/crypto";
 import { unlink } from "node:fs/promises";
 import { type CronJobSnapshot } from "../types/cron-snapshot";
 
@@ -220,12 +222,24 @@ class CronService {
     if (!alertConfig.enabled) return;
     try {
       if (alertConfig.type === "email") {
-        const apiKey = process.env.RESEND_API_KEY;
+        // Try per-user Resend config first, fall back to server env vars
+        let apiKey = process.env.RESEND_API_KEY;
+        let alertFrom = process.env.ALERT_EMAIL_FROM || "Crontab <alerts@crontab.sh>";
+
+        try {
+          const userDoc = await User.findById((job as any).userId);
+          if (userDoc?.resendApiKeyEncrypted) {
+            apiKey = decrypt(userDoc.resendApiKeyEncrypted);
+            alertFrom = userDoc.resendEmail || alertFrom;
+          }
+        } catch (userLookupErr) {
+          console.warn(`[Alert] Failed to lookup user config for job ${job._id}, falling back to env:`, userLookupErr);
+        }
+
         if (!apiKey) {
-          console.warn(`[Alert] RESEND_API_KEY not set, skipping email alert for job ${job._id}`);
+          console.warn(`[Alert] No Resend API key available for job ${job._id}, skipping email alert`);
           return;
         }
-        const alertFrom = process.env.ALERT_EMAIL_FROM || "Crontab <alerts@crontab.sh>";
         await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {

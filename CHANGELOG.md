@@ -1,4 +1,5 @@
 ## RECENT CHANGES
+2026-07-21 — open PR #4 (feat/tier1-run-now-alerts → production)
 2026-07-21 — fix build: add missing imports (getNextRunTimes, Play, Bell) and alertConfig state/interface in CronJobDetailModal
 2026-07-21 — add Tier 1 features: Run Now button, failure alerts (email+webhook), next N run times tooltip, job search/filter bar
 2026-07-01 — apply copilot review: fix build-curl.ts shQuote for bodyFilePath

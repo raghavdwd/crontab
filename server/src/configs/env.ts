@@ -11,4 +11,5 @@ export const env = {
   CLIENT_APP_URL: process.env.CLIENT_APP_URL as string,
   SERVER_APP_URL: process.env.SERVER_APP_URL as string,
   RESEND_API_KEY: process.env.RESEND_API_KEY as string,
+  RESEND_ENCRYPTION_KEY: process.env.RESEND_ENCRYPTION_KEY as string,
 };
