@@ -25,6 +25,7 @@ export const handleCreateJob = async (
       timeout,
       expectedStatus,
       saveResponse,
+      alertConfig,
     } = req.body;
 
     if (!schedule || !url) {
@@ -42,6 +43,7 @@ export const handleCreateJob = async (
       timeout,
       expectedStatus,
       saveResponse: !!saveResponse,
+      alertConfig,
     });
     res.status(201).json({
       message: "Cron job created and scheduled successfully.",
@@ -99,6 +101,7 @@ export const handleUpdateJob = async (
       expectedStatus,
       isActive,
       saveResponse,
+      alertConfig,
     } = req.body;
 
     const shouldRebuildCommand =
@@ -130,6 +133,7 @@ export const handleUpdateJob = async (
       timeout,
       expectedStatus,
       saveResponse,
+      alertConfig,
     });
     res.status(200).json({
       message: "Cron job updated successfully.",
@@ -176,6 +180,26 @@ export const handleDeleteJob = async (
  * Retrieves execution history logs belonging to the authenticated user's jobs.
  * Handles: GET /api/v1/cron/logs
  */
+export const handleRunJob = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id as string;
+    const id = req.params.id as string;
+    const log = await cronService.runOnce(id, userId);
+    res.status(200).json({
+      message: "Job executed successfully.",
+      log,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      error: "Failed to execute job.",
+      details: error.message || String(error),
+    });
+  }
+};
+
 export const handleGetLogs = async (
   req: AuthenticatedRequest,
   res: Response,

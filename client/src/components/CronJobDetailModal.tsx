@@ -745,6 +745,69 @@ const CronJobDetailModal = ({
                       />
                     </div>
                   </div>
+
+                  <div className="border-t border-[#f1f1f4] pt-6">
+                    <Label className="text-xs font-normal text-neutral-600 mb-3 block">Failure Alerts</Label>
+
+                    <div className="rounded-xl border border-[#f1f1f4] bg-neutral-50/50 p-4 flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 h-7 w-7 shrink-0 rounded-lg bg-white border border-[#f1f1f4] flex items-center justify-center">
+                          <Bell className="h-3.5 w-3.5 text-neutral-500 stroke-[1.5]" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <Label htmlFor="detail-alert-enabled" className="text-xs font-normal text-black cursor-pointer">
+                            Enable failure alerts
+                          </Label>
+                          <p className="text-[10px] font-light text-[#71717a] leading-relaxed">
+                            Notify when job fails.
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="detail-alert-enabled"
+                        checked={alertConfig.enabled}
+                        onCheckedChange={(v) => setAlertConfig({ ...alertConfig, enabled: v })}
+                        disabled={submitting}
+                        className="data-checked:bg-black data-unchecked:bg-neutral-300 mt-1"
+                      />
+                    </div>
+
+                    {alertConfig.enabled && (
+                      <div className="mt-4 space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className={labelClass}>Alert Type</Label>
+                          <Select
+                            value={alertConfig.type}
+                            onValueChange={(v: "email" | "webhook") => setAlertConfig({ ...alertConfig, type: v })}
+                            disabled={submitting}
+                          >
+                            <SelectTrigger className={`${inputClass} w-full justify-between font-light`}>
+                              <SelectValue placeholder="Select alert type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="email">Email</SelectItem>
+                              <SelectItem value="webhook">Webhook</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="detail-alert-target" className={labelClass}>
+                            {alertConfig.type === "email" ? "Email Address" : "Webhook URL"}
+                          </Label>
+                          <Input
+                            id="detail-alert-target"
+                            type={alertConfig.type === "email" ? "email" : "url"}
+                            placeholder={alertConfig.type === "email" ? "you@example.com" : "https://hooks.example.com/alert"}
+                            value={alertConfig.target}
+                            onChange={(e) => setAlertConfig({ ...alertConfig, target: e.target.value })}
+                            disabled={submitting}
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </TabsContent>

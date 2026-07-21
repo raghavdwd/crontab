@@ -38,9 +38,19 @@ import {
   ChevronRight,
   ExternalLink,
   Eye,
+  Play,
+  Search,
+  Loader2,
 } from "lucide-react";
 import ResponseBodyModal from "@/components/ResponseBodyModal";
 import CronJobDetailModal from "@/components/CronJobDetailModal";
+import { getNextRunTimes } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CronJob {
   _id: string;
@@ -83,6 +93,9 @@ export const Dashboard: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [selectedJob, setSelectedJob] = useState<CronJob | null>(null);
   const [selectedLog, setSelectedLog] = useState<CronLog | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused">("all");
+  const [runningJobId, setRunningJobId] = useState<string | null>(null);
   const logsPerPage = 10;
 
   const fetchDashboardData = async () => {
@@ -151,6 +164,18 @@ export const Dashboard: React.FC = () => {
     }
   };
 
+  const handleRunJob = async (jobId: string) => {
+    setRunningJobId(jobId);
+    try {
+      await api.post(`/cron/${jobId}/run`);
+      fetchLogs(currentPage);
+    } catch (err) {
+      console.error("Run failed:", err);
+    } finally {
+      setRunningJobId(null);
+    }
+  };
+
   const extractUrlFromCommand = (command: string) => {
     // Backend creates: curl -X GET <url>
     if (command.startsWith("curl -X GET ")) {
@@ -168,6 +193,17 @@ export const Dashboard: React.FC = () => {
     completedLogs.length > 0
       ? Math.round((successLogsCount / completedLogs.length) * 100)
       : 100;
+
+  const filteredJobs = jobs.filter(job => {
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !q || 
+      (job.name?.toLowerCase().includes(q)) ||
+      (job.command?.toLowerCase().includes(q));
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "active" && job.isActive) ||
+      (statusFilter === "paused" && !job.isActive);
+    return matchesSearch && matchesStatus;
+  });
 
 
 
@@ -266,6 +302,53 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Search & Filter */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center mb-6">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400 stroke-[1.5]" />
+            <input
+              type="text"
+              placeholder="Search by name or URL..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full h-10 pl-10 border border-[#e4e4e7] bg-white text-sm font-light rounded-lg focus:outline-none focus:ring-1 focus:ring-black transition-all placeholder:text-neutral-400"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`h-8 px-3 text-xs font-light rounded-lg border transition-colors ${
+                statusFilter === "all"
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-neutral-600 border-[#e4e4e7] hover:bg-neutral-50"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setStatusFilter("active")}
+              className={`h-8 px-3 text-xs font-light rounded-lg border transition-colors ${
+                statusFilter === "active"
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-neutral-600 border-[#e4e4e7] hover:bg-neutral-50"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setStatusFilter("paused")}
+              className={`h-8 px-3 text-xs font-light rounded-lg border transition-colors ${
+                statusFilter === "paused"
+                  ? "bg-black text-white border-black"
+                  : "bg-white text-neutral-600 border-[#e4e4e7] hover:bg-neutral-50"
+              }`}
+            >
+              Paused
+            </button>
+          </div>
+        </div>
+
         {/* Tab section */}
         <Tabs defaultValue="jobs" className="space-y-6">
           <TabsList className="bg-neutral-100 p-1 rounded-xl h-10 border border-[#f1f1f4] inline-flex">
@@ -295,22 +378,25 @@ export const Dashboard: React.FC = () => {
                   </p>
                 </div>
               </div>
-            ) : jobs.length === 0 ? (
+            ) : filteredJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-80 bg-white border border-[#f1f1f4] rounded-xl text-center p-8 shadow-xs">
-                <Clock className="h-8 w-8 text-neutral-300 stroke-[1.2] mb-4" />
+                <Search className="h-8 w-8 text-neutral-300 stroke-[1.2] mb-4" />
                 <h3 className="text-base font-normal text-black">
-                  No scheduled jobs
+                  {searchQuery || statusFilter !== "all" ? "No matching jobs" : "No scheduled jobs"}
                 </h3>
                 <p className="text-xs font-light text-[#71717a] mt-1 max-w-sm">
-                  You haven't configured any cron triggers yet. Start automating
-                  your endpoint checks in seconds.
+                  {searchQuery || statusFilter !== "all"
+                    ? "Try adjusting your search or filter criteria."
+                    : "You haven't configured any cron triggers yet. Start automating your endpoint checks in seconds."}
                 </p>
-                <Link to="/create-job" className="mt-6">
-                  <Button className="bg-black hover:bg-black/90 text-white font-light tracking-wide px-6 py-2 h-9 rounded-lg flex items-center gap-2">
-                    <Plus className="h-4 w-4 stroke-[1.5]" />
-                    Create First Job
-                  </Button>
-                </Link>
+                {!searchQuery && statusFilter === "all" && (
+                  <Link to="/create-job" className="mt-6">
+                    <Button className="bg-black hover:bg-black/90 text-white font-light tracking-wide px-6 py-2 h-9 rounded-lg flex items-center gap-2">
+                      <Plus className="h-4 w-4 stroke-[1.5]" />
+                      Create First Job
+                    </Button>
+                  </Link>
+                )}
               </div>
             ) : (
               <div className="bg-white border border-[#f1f1f4] rounded-xl shadow-xs overflow-hidden">
@@ -338,7 +424,7 @@ export const Dashboard: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {jobs.map((job) => {
+                    {filteredJobs.map((job) => {
                       const endpointUrl = extractUrlFromCommand(job.command);
                       return (
                         <TableRow
@@ -349,10 +435,30 @@ export const Dashboard: React.FC = () => {
                             {job.name || "Untitled Schedule"}
                           </TableCell>
                           <TableCell className="px-6 py-4">
-                            <div className="flex items-center gap-1.5 text-xs text-neutral-600 font-mono bg-neutral-50 border border-neutral-100 rounded-md py-0.5 px-2 w-fit">
-                              <Clock className="h-3 w-3 text-neutral-400 stroke-[1.5]" />
-                              {job.schedule}
-                            </div>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex items-center gap-1.5 text-xs text-neutral-600 font-mono bg-neutral-50 border border-neutral-100 rounded-md py-0.5 px-2 w-fit cursor-help">
+                                    <Clock className="h-3 w-3 text-neutral-400 stroke-[1.5]" />
+                                    {job.schedule}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="right" align="start" className="font-mono text-xs p-3">
+                                  <p className="font-semibold text-neutral-800 mb-1.5 text-[11px]">
+                                    Next {Math.min(getNextRunTimes(job.schedule).length, 5)} runs:
+                                  </p>
+                                  {getNextRunTimes(job.schedule).length > 0 ? (
+                                    getNextRunTimes(job.schedule).map((d, i) => (
+                                      <p key={i} className="text-[11px] text-neutral-600 leading-relaxed">
+                                        {d.toLocaleString()}
+                                      </p>
+                                    ))
+                                  ) : (
+                                    <p className="text-[11px] text-neutral-400 italic">Invalid expression</p>
+                                  )}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </TableCell>
                           <TableCell className="px-6 py-4 font-mono text-xs text-[#71717a] max-w-72 truncate">
                             <span className="flex items-center gap-1.5">
@@ -396,6 +502,18 @@ export const Dashboard: React.FC = () => {
 
                           <TableCell className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleRunJob(job._id)}
+                                disabled={runningJobId === job._id}
+                                title="Run Now"
+                                className="p-1.5 text-neutral-400 hover:text-emerald-600 transition-colors focus:outline-none disabled:opacity-50"
+                              >
+                                {runningJobId === job._id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin stroke-[1.5]" />
+                                ) : (
+                                  <Play className="h-4 w-4 stroke-[1.5]" />
+                                )}
+                              </button>
                               <button
                                 onClick={() =>
                                   handleToggleStatus(job._id, job.isActive)

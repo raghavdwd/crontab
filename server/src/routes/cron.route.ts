@@ -5,6 +5,7 @@ import {
   handleDeleteJob,
   handleGetLogs,
   handleCreateJob,
+  handleRunJob,
 } from "../controllers/cron.controller";
 
 const cronRouter = Router();
@@ -18,6 +19,9 @@ cronRouter.post("/schedule", handleCreateJob);
 
 // Retrieve execution logs
 cronRouter.get("/logs", handleGetLogs);
+
+// Execute a cron job immediately (test run)
+cronRouter.post("/:id/run", handleRunJob);
 
 // Update configuration or status of a cron job
 cronRouter.put("/:id", handleUpdateJob);

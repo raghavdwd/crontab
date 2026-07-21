@@ -32,6 +32,12 @@ export const CreateJob: React.FC = () => {
   const [expectedStatus, setExpectedStatus] = useState("");
   const [saveResponse, setSaveResponse] = useState(false);
 
+  const [alertConfig, setAlertConfig] = useState<{ type: "email" | "webhook"; target: string; enabled: boolean }>({
+    type: "email",
+    target: "",
+    enabled: false,
+  });
+
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -65,6 +71,7 @@ export const CreateJob: React.FC = () => {
       timeout: timeout ? Number(timeout) : undefined,
       expectedStatus: expectedStatus ? Number(expectedStatus) : undefined,
       saveResponse,
+      alertConfig: alertConfig.enabled ? alertConfig : undefined,
     });
       navigate("/dashboard");
     } catch (err: any) {
@@ -130,12 +137,14 @@ export const CreateJob: React.FC = () => {
                   body={body}
                   timeout={timeout}
                   expectedStatus={expectedStatus}
+                  alertConfig={alertConfig}
                   submitting={submitting}
                   onHeadersChange={setHeaders}
                   onMethodChange={setMethod}
                   onBodyChange={setBody}
                   onTimeoutChange={setTimeout_}
                   onExpectedStatusChange={setExpectedStatus}
+                  onAlertConfigChange={setAlertConfig}
                 />
               </TabsContent>
             </Tabs>

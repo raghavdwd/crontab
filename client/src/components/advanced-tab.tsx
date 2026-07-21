@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { CircleCheckBig, Circle, Plus, Trash2 } from "lucide-react";
+import { Switch } from "./ui/switch";
+import { Bell, CircleCheckBig, Circle, Plus, Trash2 } from "lucide-react";
 
 interface Header {
   id: number;
