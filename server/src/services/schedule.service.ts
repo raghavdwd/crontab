@@ -1,7 +1,10 @@
-import CronJob, { type ICronJob } from "../models/CronJob";
+import CronJob, { type ICronJob, type IAlertConfig } from "../models/CronJob";
 import CronLog from "../models/CronLog";
-import { saveResponseBodyToFile } from "../utils/save-response-body";
+import User from "../models/User";
+import { readAndCleanupResponseBody } from "../utils/save-response-body";
+import { decrypt } from "../utils/crypto";
 import { unlink } from "node:fs/promises";
+import { type CronJobSnapshot } from "../types/cron-snapshot";
 
 class CronService {
   private static instance: CronService;
@@ -82,6 +85,19 @@ class CronService {
   }
 
   /**
+   * Executes a cron job immediately (test run) and returns the latest log entry.
+   */
+  async runOnce(jobId: string, userId: string): Promise<any> {
+    const job = await CronJob.findOne({ _id: jobId, userId });
+    if (!job) {
+      throw new Error("Cron job not found or unauthorized.");
+    }
+    await this.executeJob(job._id.toString(), job.name || "unknown", job.command, job.saveResponse);
+    const log = await CronLog.findOne({ jobId: job._id }).sort({ triggerTime: -1 });
+    return log;
+  }
+
+  /**
    * Stops a scheduled cron job in-memory.
    */
   stopCronJob(jobId: string): boolean {
@@ -150,7 +166,7 @@ class CronService {
       let responseBody: string | undefined;
       let bodyTruncated: boolean | undefined;
       if (saveResponse && bodyFilePath) {
-        const result = await saveResponseBodyToFile(bodyFilePath);
+        const result = await readAndCleanupResponseBody(bodyFilePath);
         responseBody = result.responseBody;
         bodyTruncated = result.bodyTruncated;
       }
@@ -188,6 +204,88 @@ class CronService {
         await logEntry.save();
       }
     }
+
+    // 5. Send alert on failure
+    if (logEntry && logEntry.status === "failure") {
+      try {
+        const jobDoc = await CronJob.findById(jobId);
+        if (jobDoc?.alertConfig?.enabled) {
+          await this.sendAlert(jobDoc.alertConfig, jobDoc, logEntry);
+        }
+      } catch (alertErr) {
+        console.error(`[Job ${jobId}] Failed to send alert:`, alertErr);
+      }
+    }
+  }
+
+  private async sendAlert(alertConfig: IAlertConfig, job: ICronJob, logEntry: any): Promise<void> {
+    if (!alertConfig.enabled) return;
+    try {
+      if (alertConfig.type === "email") {
+        // Try per-user Resend config first, fall back to server env vars
+        let apiKey = process.env.RESEND_API_KEY;
+        let alertFrom = process.env.ALERT_EMAIL_FROM || "Crontab <alerts@crontab.sh>";
+
+        try {
+          const userDoc = await User.findById(job.userId);
+          if (userDoc?.resendApiKeyEncrypted) {
+            apiKey = decrypt(userDoc.resendApiKeyEncrypted);
+            alertFrom = userDoc.resendEmail || alertFrom;
+          }
+        } catch (userLookupErr) {
+          console.warn(`[Alert] Failed to lookup user config for job ${job._id}, falling back to env:`, userLookupErr);
+        }
+
+        if (!apiKey) {
+          console.warn(`[Alert] No Resend API key available for job ${job._id}, skipping email alert`);
+          return;
+        }
+        await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: alertFrom,
+            to: alertConfig.target,
+            subject: `Cron Job Failed: ${job.name || job._id}`,
+            html: `<h2>Cron Job Failed</h2>
+<p><strong>Job:</strong> ${job.name || "Untitled"} (${job._id})</p>
+<p><strong>Schedule:</strong> ${job.schedule}</p>
+<p><strong>Command:</strong> <code>${job.command}</code></p>
+<p><strong>Exit Code:</strong> ${logEntry.exitCode}</p>
+<p><strong>Trigger Time:</strong> ${logEntry.triggerTime}</p>
+${logEntry.stderr ? `<p><strong>Stderr:</strong> <pre>${logEntry.stderr}</pre></p>` : ''}
+<hr/>
+<p><a href="${process.env.APP_URL || 'http://localhost:5173'}/dashboard">View Dashboard</a></p>`,
+          }),
+        });
+      } else if (alertConfig.type === "webhook") {
+        await fetch(alertConfig.target, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "cron_job.failed",
+            job: {
+              id: job._id,
+              name: job.name,
+              schedule: job.schedule,
+              command: job.command,
+            },
+            log: {
+              exitCode: logEntry.exitCode,
+              stdout: logEntry.stdout,
+              stderr: logEntry.stderr,
+              triggerTime: logEntry.triggerTime,
+              endTime: logEntry.endTime,
+            },
+          }),
+        });
+      }
+    } catch (err) {
+      console.error(`[Alert] Failed to send alert for job ${job._id}:`, err);
+    }
   }
 
   /**
@@ -205,6 +303,7 @@ class CronService {
       timeout?: number;
       expectedStatus?: number;
       saveResponse?: boolean;
+      alertConfig?: IAlertConfig;
     },
   ): Promise<ICronJob> {
     // 1. Save to the database
@@ -220,6 +319,7 @@ class CronService {
       timeout: advanced?.timeout,
       expectedStatus: advanced?.expectedStatus,
       saveResponse: advanced?.saveResponse ?? false,
+      alertConfig: advanced?.alertConfig,
     });
 
     try {
@@ -257,6 +357,7 @@ class CronService {
       timeout?: number;
       expectedStatus?: number;
       saveResponse?: boolean;
+      alertConfig?: IAlertConfig;
     },
   ): Promise<ICronJob | null> {
     // Find job belonging ONLY to this user
@@ -265,17 +366,20 @@ class CronService {
       throw new Error("Cron job not found or unauthorized.");
     }
 
-    // Keep previous values for rollback if re-scheduling fails
-    const previousIsActive = job.isActive;
-    const previousSchedule = job.schedule;
-    const previousCommand = job.command;
-    const previousName = job.name;
-    const previousMethod = job.method;
-    const previousHeaders = job.headers;
-    const previousBody = job.body;
-    const previousTimeout = job.timeout;
-    const previousExpectedStatus = job.expectedStatus;
-    const previousSaveResponse = job.saveResponse;
+    // Snapshot for rollback if re-scheduling fails
+    const snapshot: CronJobSnapshot = {
+      isActive: job.isActive,
+      schedule: job.schedule,
+      command: job.command,
+      name: job.name,
+      method: job.method,
+      headers: job.headers,
+      body: job.body,
+      timeout: job.timeout,
+      expectedStatus: job.expectedStatus,
+      saveResponse: job.saveResponse,
+      alertConfig: job.alertConfig,
+    };
 
     // Apply updates to DB object
     if (updateData.name !== undefined) job.name = updateData.name;
@@ -290,6 +394,8 @@ class CronService {
       job.expectedStatus = updateData.expectedStatus;
     if (updateData.saveResponse !== undefined)
       job.saveResponse = updateData.saveResponse;
+    if (updateData.alertConfig !== undefined)
+      job.alertConfig = updateData.alertConfig;
 
     await job.save();
 
@@ -310,16 +416,17 @@ class CronService {
       await CronJob.findOneAndUpdate(
         { _id: jobId, userId },
         {
-          isActive: previousIsActive,
-          schedule: previousSchedule,
-          command: previousCommand,
-          name: previousName || "unknown",
-          method: previousMethod,
-          headers: previousHeaders,
-          body: previousBody,
-          timeout: previousTimeout,
-          expectedStatus: previousExpectedStatus,
-          saveResponse: previousSaveResponse,
+          isActive: snapshot.isActive,
+          schedule: snapshot.schedule,
+          command: snapshot.command,
+          name: snapshot.name || "unknown",
+          method: snapshot.method,
+          headers: snapshot.headers,
+          body: snapshot.body,
+          timeout: snapshot.timeout,
+          expectedStatus: snapshot.expectedStatus,
+          saveResponse: snapshot.saveResponse,
+          alertConfig: snapshot.alertConfig,
         },
       );
       throw error;

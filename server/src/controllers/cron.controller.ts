@@ -2,6 +2,7 @@ import { type Response } from "express";
 import CronService from "../services/schedule.service";
 import { type AuthenticatedRequest } from "../middlewares/auth.middleware";
 import { buildCurlCommand } from "../utils/build-curl";
+import { type CreateJobRequest } from "../types/cron-request";
 const cronService = new CronService();
 
 /**
@@ -15,17 +16,8 @@ export const handleCreateJob = async (
   try {
     const userId = req.user?.id as string;
 
-    const {
-      name,
-      schedule,
-      url,
-      method,
-      headers,
-      body,
-      timeout,
-      expectedStatus,
-      saveResponse,
-    } = req.body;
+    const input = req.body as CreateJobRequest;
+    const { name, schedule, url, method, headers, body, timeout, expectedStatus, saveResponse, alertConfig } = input;
 
     if (!schedule || !url) {
       res
@@ -34,7 +26,7 @@ export const handleCreateJob = async (
       return;
     }
 
-    const command = buildCurlCommand(url, method, headers, body, timeout, !!saveResponse);
+    const command = buildCurlCommand(url, method, headers, body, timeout);
     const job = await cronService.createJob(userId, name, schedule, command, {
       method,
       headers,
@@ -42,6 +34,7 @@ export const handleCreateJob = async (
       timeout,
       expectedStatus,
       saveResponse: !!saveResponse,
+      alertConfig,
     });
     res.status(201).json({
       message: "Cron job created and scheduled successfully.",
@@ -88,18 +81,8 @@ export const handleUpdateJob = async (
     const userId = req.user?.id as string;
 
     const id = req.params.id as string;
-    const {
-      name,
-      schedule,
-      url,
-      method,
-      headers,
-      body,
-      timeout,
-      expectedStatus,
-      isActive,
-      saveResponse,
-    } = req.body;
+    const input = req.body as CreateJobRequest & { isActive?: boolean };
+    const { name, schedule, url, method, headers, body, timeout, expectedStatus, isActive, saveResponse, alertConfig } = input;
 
     const shouldRebuildCommand =
       url !== undefined ||
@@ -117,7 +100,7 @@ export const handleUpdateJob = async (
         });
         return;
       }
-      command = buildCurlCommand(url, method, headers, body, timeout, !!saveResponse);
+      command = buildCurlCommand(url, method, headers, body, timeout);
     }
     const job = await cronService.updateJob(userId, id, {
       name,
@@ -130,6 +113,7 @@ export const handleUpdateJob = async (
       timeout,
       expectedStatus,
       saveResponse,
+      alertConfig,
     });
     res.status(200).json({
       message: "Cron job updated successfully.",
@@ -176,6 +160,26 @@ export const handleDeleteJob = async (
  * Retrieves execution history logs belonging to the authenticated user's jobs.
  * Handles: GET /api/v1/cron/logs
  */
+export const handleRunJob = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const userId = req.user?.id as string;
+    const id = req.params.id as string;
+    const log = await cronService.runOnce(id, userId);
+    res.status(200).json({
+      message: "Job executed successfully.",
+      log,
+    });
+  } catch (error: any) {
+    res.status(400).json({
+      error: "Failed to execute job.",
+      details: error.message || String(error),
+    });
+  }
+};
+
 export const handleGetLogs = async (
   req: AuthenticatedRequest,
   res: Response,

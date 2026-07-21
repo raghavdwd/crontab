@@ -17,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { CircleCheckBig, Circle, Plus, Trash2 } from "lucide-react";
+import { Switch } from "./ui/switch";
+import { Bell, CircleCheckBig, Circle, Plus, Trash2 } from "lucide-react";
 
 interface Header {
   id: number;
@@ -32,12 +33,14 @@ interface AdvancedTabProps {
   body: string;
   timeout: string;
   expectedStatus: string;
+  alertConfig: { type: "email" | "webhook"; target: string; enabled: boolean };
   submitting?: boolean;
   onHeadersChange: (headers: Header[]) => void;
   onMethodChange: (method: string) => void;
   onBodyChange: (body: string) => void;
   onTimeoutChange: (timeout: string) => void;
   onExpectedStatusChange: (status: string) => void;
+  onAlertConfigChange: (config: { type: "email" | "webhook"; target: string; enabled: boolean }) => void;
 }
 
 const inputClass =
@@ -53,12 +56,14 @@ const AdvancedTab = ({
   body,
   timeout,
   expectedStatus,
+  alertConfig,
   submitting = false,
   onHeadersChange,
   onMethodChange,
   onBodyChange,
   onTimeoutChange,
   onExpectedStatusChange,
+  onAlertConfigChange,
 }: AdvancedTabProps) => {
   const toggleEnable = (id: number) => {
     onHeadersChange(
@@ -260,6 +265,78 @@ const AdvancedTab = ({
             className={inputClass}
           />
           <p className={helperClass}>Defaults to 200.</p>
+        </div>
+
+        {/* Failure Alerts */}
+        <div className="border-t border-[#f1f1f4] pt-6">
+          <h4 className="text-sm font-medium text-black mb-1">Failure Alerts</h4>
+          <p className="text-xs font-light text-[#71717a] mb-4">
+            Get notified when this cron job fails.
+          </p>
+
+          <div className="rounded-xl border border-[#f1f1f4] bg-neutral-50/50 p-4 flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 h-7 w-7 shrink-0 rounded-lg bg-white border border-[#f1f1f4] flex items-center justify-center">
+                <Bell className="h-3.5 w-3.5 text-neutral-500 stroke-[1.5]" />
+              </div>
+              <div className="space-y-0.5">
+                <Label htmlFor="alert-enabled" className="text-xs font-normal text-black cursor-pointer">
+                  Enable failure alerts
+                </Label>
+                <p className="text-[10px] font-light text-[#71717a] leading-relaxed">
+                  Send email or webhook notification when exit code != 0.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="alert-enabled"
+              checked={alertConfig.enabled}
+              onCheckedChange={(v) => onAlertConfigChange({ ...alertConfig, enabled: v })}
+              disabled={submitting}
+              className="data-checked:bg-black data-unchecked:bg-neutral-300 mt-1"
+            />
+          </div>
+
+          {alertConfig.enabled && (
+            <div className="mt-4 space-y-4">
+              <div className="space-y-1.5">
+                <Label className={labelClass}>Alert Type</Label>
+                <Select
+                  value={alertConfig.type}
+                  onValueChange={(v: "email" | "webhook") => onAlertConfigChange({ ...alertConfig, type: v })}
+                  disabled={submitting}
+                >
+                  <SelectTrigger className={`${inputClass} w-full justify-between font-light`}>
+                    <SelectValue placeholder="Select alert type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="webhook">Webhook</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="alert-target" className={labelClass}>
+                  {alertConfig.type === "email" ? "Email Address" : "Webhook URL"}
+                </Label>
+                <Input
+                  id="alert-target"
+                  type={alertConfig.type === "email" ? "email" : "url"}
+                  placeholder={alertConfig.type === "email" ? "you@example.com" : "https://hooks.example.com/alert"}
+                  value={alertConfig.target}
+                  onChange={(e) => onAlertConfigChange({ ...alertConfig, target: e.target.value })}
+                  disabled={submitting}
+                  className={inputClass}
+                />
+                <p className={helperClass}>
+                  {alertConfig.type === "email"
+                    ? "Requires RESEND_API_KEY environment variable."
+                    : "HTTP POST payload with job and log details."}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

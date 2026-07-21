@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { getNextRunTimes } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +34,8 @@ import {
   Circle,
   Plus,
   AlertTriangle,
+  Play,
+  Bell,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -54,6 +58,7 @@ interface CronJob {
   timeout?: number;
   expectedStatus?: number;
   saveResponse: boolean;
+  alertConfig?: { enabled: boolean; type: "email" | "webhook"; target: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -121,6 +126,8 @@ const CronJobDetailModal = ({
   const [timeout, setTimeout_] = useState("");
   const [expectedStatus, setExpectedStatus] = useState("");
   const [saveResponse, setSaveResponse] = useState(false);
+  const [runningNow, setRunningNow] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({ enabled: false, type: "email" as "email" | "webhook", target: "" });
 
   useEffect(() => {
     if (job) {
@@ -143,6 +150,7 @@ const CronJobDetailModal = ({
       setTimeout_(job.timeout?.toString() || "");
       setExpectedStatus(job.expectedStatus?.toString() || "");
       setSaveResponse(job.saveResponse);
+      setAlertConfig(job.alertConfig || { enabled: false, type: "email", target: "" });
     }
   }, [job]);
 
@@ -234,6 +242,25 @@ const CronJobDetailModal = ({
 
   const removeHeader = (id: number) => {
     setHeaders(headers.filter((h) => h.id !== id));
+  };
+
+  const handleRunNow = async () => {
+    if (!job) return;
+    setRunningNow(true);
+    try {
+      const res = await api.post(`/cron/${job._id}/run`);
+      const log = res.data?.log;
+      if (log?.status === "success") {
+        toast.success(`Run complete — exit ${log.exitCode}, stdout: ${log.stdout || "(empty)"}`);
+      } else {
+        toast.error(`Run failed — exit ${log?.exitCode}, stderr: ${log?.stderr || "(empty)"}`);
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.message || "Run failed";
+      toast.error(msg);
+    } finally {
+      setRunningNow(false);
+    }
   };
 
   if (!job) return null;
@@ -370,6 +397,45 @@ const CronJobDetailModal = ({
                     <p className="mt-1 font-mono text-xs text-black break-all">
                       {extractUrl(job.command)}
                     </p>
+                  </div>
+
+                  <div>
+                    <Label className="text-[10px] font-normal text-neutral-500 uppercase tracking-wider">
+                      Next 5 Executions
+                    </Label>
+                    <div className="mt-1 space-y-0.5">
+                      {getNextRunTimes(job.schedule).length > 0 ? (
+                        getNextRunTimes(job.schedule).map((d, i) => (
+                          <p key={i} className="text-xs font-mono text-neutral-600">
+                            {d.toLocaleString()}
+                          </p>
+                        ))
+                      ) : (
+                        <p className="text-xs font-light italic text-neutral-400">
+                          Invalid cron expression
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      onClick={handleRunNow}
+                      disabled={runningNow}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-light tracking-wide rounded-lg flex items-center gap-2 shadow-sm text-xs h-9"
+                    >
+                      {runningNow ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin stroke-[1.5]" />
+                          Running...
+                        </>
+                      ) : (
+                        <>
+                          <Play className="h-4 w-4 stroke-[1.5]" />
+                          Run Now
+                        </>
+                      )}
+                    </Button>
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -597,6 +663,24 @@ const CronJobDetailModal = ({
                       </Badge>
                     )}
                   </div>
+
+                  <div className="border-t border-[#f1f1f4] pt-4 mt-4">
+                    <Label className="text-[10px] font-normal text-neutral-500 uppercase tracking-wider">
+                      Failure Alerts
+                    </Label>
+                    {job.alertConfig?.enabled ? (
+                      <div className="mt-1 flex items-center gap-2">
+                        <Badge className="bg-violet-50 text-violet-700 border-violet-100 font-light text-[10px] rounded-full px-2 py-0">
+                          {job.alertConfig.type === "email" ? "📧 Email" : "🔗 Webhook"}
+                        </Badge>
+                        <span className="text-xs font-mono text-neutral-600">
+                          {job.alertConfig.target}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-xs font-light italic text-neutral-400">No alerts configured</p>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
@@ -744,6 +828,69 @@ const CronJobDetailModal = ({
                         className={inputClass}
                       />
                     </div>
+                  </div>
+
+                  <div className="border-t border-[#f1f1f4] pt-6">
+                    <Label className="text-xs font-normal text-neutral-600 mb-3 block">Failure Alerts</Label>
+
+                    <div className="rounded-xl border border-[#f1f1f4] bg-neutral-50/50 p-4 flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 h-7 w-7 shrink-0 rounded-lg bg-white border border-[#f1f1f4] flex items-center justify-center">
+                          <Bell className="h-3.5 w-3.5 text-neutral-500 stroke-[1.5]" />
+                        </div>
+                        <div className="space-y-0.5">
+                          <Label htmlFor="detail-alert-enabled" className="text-xs font-normal text-black cursor-pointer">
+                            Enable failure alerts
+                          </Label>
+                          <p className="text-[10px] font-light text-[#71717a] leading-relaxed">
+                            Notify when job fails.
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        id="detail-alert-enabled"
+                        checked={alertConfig.enabled}
+                        onCheckedChange={(v) => setAlertConfig({ ...alertConfig, enabled: v })}
+                        disabled={submitting}
+                        className="data-checked:bg-black data-unchecked:bg-neutral-300 mt-1"
+                      />
+                    </div>
+
+                    {alertConfig.enabled && (
+                      <div className="mt-4 space-y-4">
+                        <div className="space-y-1.5">
+                          <Label className={labelClass}>Alert Type</Label>
+                          <Select
+                            value={alertConfig.type}
+                            onValueChange={(v: "email" | "webhook") => setAlertConfig({ ...alertConfig, type: v })}
+                            disabled={submitting}
+                          >
+                            <SelectTrigger className={`${inputClass} w-full justify-between font-light`}>
+                              <SelectValue placeholder="Select alert type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="email">Email</SelectItem>
+                              <SelectItem value="webhook">Webhook</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="detail-alert-target" className={labelClass}>
+                            {alertConfig.type === "email" ? "Email Address" : "Webhook URL"}
+                          </Label>
+                          <Input
+                            id="detail-alert-target"
+                            type={alertConfig.type === "email" ? "email" : "url"}
+                            placeholder={alertConfig.type === "email" ? "you@example.com" : "https://hooks.example.com/alert"}
+                            value={alertConfig.target}
+                            onChange={(e) => setAlertConfig({ ...alertConfig, target: e.target.value })}
+                            disabled={submitting}
+                            className={inputClass}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}

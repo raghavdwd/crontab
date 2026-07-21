@@ -1,14 +1,49 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../components/ui/card";
 import { Avatar, AvatarFallback } from "../components/ui/avatar";
-import { User, LogOut, Shield, Key, Calendar, Award } from "lucide-react";
+import { User, LogOut, Shield, Key, Calendar, Award, Mail } from "lucide-react";
+import { Input } from "../components/ui/input";
+import toast from "react-hot-toast";
+import api from "../lib/api";
 
 export const Profile: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [resendApiKey, setResendApiKey] = useState("");
+  const [resendEmail, setResendEmail] = useState("");
+  const [resendConfigured, setResendConfigured] = useState(false);
+  const [savingResend, setSavingResend] = useState(false);
+
+  useEffect(() => {
+    api.get("/auth/resend-config").then((res) => {
+      if (res.data?.email) {
+        setResendEmail(res.data.email);
+      }
+      setResendConfigured(!!res.data?.configured);
+    }).catch(() => {});
+  }, []);
+
+  const handleSaveResend = async () => {
+    setSavingResend(true);
+    try {
+      const body: Record<string, string> = {};
+      if (resendApiKey.trim()) body.apiKey = resendApiKey.trim();
+      if (resendEmail.trim()) body.email = resendEmail.trim();
+      await api.put("/auth/resend-config", body);
+      setResendConfigured(true);
+      setResendApiKey("");
+      toast.success("Email alert configuration saved.");
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.message || "Failed to save.";
+      toast.error(msg);
+    } finally {
+      setSavingResend(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -122,6 +157,61 @@ export const Profile: React.FC = () => {
           </CardHeader>
           <CardContent className="p-6 pt-0 text-xs font-light text-neutral-600 leading-relaxed">
             Your active JSON Web Token (JWT) is stored securely inside your browser's local sandbox storage. It automatically signs all cron execution scheduler sync routines. Do not share your auth header with third-party utilities.
+          </CardContent>
+        </Card>
+
+        {/* Resend Email Alerts Card */}
+        <Card className="border border-[#f1f1f4] bg-white shadow-xs rounded-xl overflow-hidden mt-6">
+          <CardHeader className="p-6 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Mail className="h-4.5 w-4.5 text-black stroke-[1.5]" />
+              <CardTitle className="text-sm font-medium text-black">Email Alerts (Resend)</CardTitle>
+            </div>
+            <CardDescription className="text-xs font-light text-[#71717a]">
+              Configure your Resend account to receive email alerts when cron jobs fail.
+              Free tier: 100 emails/day.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 pt-3 space-y-4">
+            {/* API Key field */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-normal text-neutral-600">Resend API Key</label>
+              <Input
+                type="password"
+                placeholder="re_..."
+                value={resendApiKey}
+                onChange={(e) => setResendApiKey(e.target.value)}
+                className="h-9 text-xs"
+              />
+            </div>
+
+            {/* Verified email field */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-normal text-neutral-600">Verified Sender Email</label>
+              <Input
+                type="email"
+                placeholder="your@gmail.com"
+                value={resendEmail}
+                onChange={(e) => setResendEmail(e.target.value)}
+                className="h-9 text-xs"
+              />
+              <p className="text-[11px] font-light text-[#71717a]">
+                The Gmail you used to register on Resend.
+              </p>
+            </div>
+
+            {/* Save + status */}
+            <div className="flex items-center justify-between">
+              <Button onClick={handleSaveResend} disabled={savingResend} className="h-9 text-xs">
+                {savingResend ? "Saving..." : "Save Configuration"}
+              </Button>
+              {resendConfigured && (
+                <span className="text-xs text-emerald-600 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  Configured
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
