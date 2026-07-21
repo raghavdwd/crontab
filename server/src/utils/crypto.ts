@@ -4,12 +4,14 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 
 function getKey(): Buffer {
-  const key = process.env.RESEND_ENCRYPTION_KEY;
-  if (!key) {
+  // Import lazily to avoid circular / ESM init issues
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { env } = require("../configs/env");
+  if (!env.RESEND_ENCRYPTION_KEY) {
     throw new Error("RESEND_ENCRYPTION_KEY env var is required");
   }
   // Hash to ensure correct length for AES-256
-  return createHash("sha256").update(key).digest();
+  return createHash("sha256").update(env.RESEND_ENCRYPTION_KEY).digest();
 }
 
 export function encrypt(text: string): string {

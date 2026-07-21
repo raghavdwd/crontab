@@ -80,22 +80,43 @@ export const handleUpdateResendConfig = async (
     const userId = req.user?.id as string;
     const { apiKey, email } = req.body;
 
-    const updateFields: Record<string, any> = {};
-
-    if (apiKey !== undefined && apiKey !== "") {
-      updateFields.resendApiKeyEncrypted = encrypt(apiKey);
+    // Validate email format
+    if (email !== undefined && email !== null && email !== "") {
+      const emailStr = String(email).trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailStr)) {
+        res.status(400).json({ error: "Invalid email format." });
+        return;
+      }
     }
-    if (email !== undefined) {
-      updateFields.resendEmail = email.trim().toLowerCase() || undefined;
+
+    const $set: Record<string, any> = {};
+    const $unset: Record<string, string> = {};
+
+    if (apiKey !== undefined && apiKey !== null && apiKey !== "") {
+      $set.resendApiKeyEncrypted = encrypt(apiKey);
+    } else if (apiKey === null || apiKey === "") {
+      $unset.resendApiKeyEncrypted = "";
+    }
+    if (email !== undefined && email !== null) {
+      const trimmed = String(email).trim().toLowerCase();
+      if (trimmed) {
+        $set.resendEmail = trimmed;
+      } else {
+        $unset.resendEmail = "";
+      }
     }
 
-    if (Object.keys(updateFields).length > 0) {
-      await User.findByIdAndUpdate(userId, updateFields);
+    const update: Record<string, any> = {};
+    if (Object.keys($set).length > 0) update.$set = $set;
+    if (Object.keys($unset).length > 0) update.$unset = $unset;
+
+    if (Object.keys(update).length > 0) {
+      await User.findByIdAndUpdate(userId, update);
     }
 
     res.status(200).json({ message: "Resend configuration updated." });
   } catch (error: any) {
-    res.status(400).json({
+    res.status(500).json({
       error: "Failed to update Resend configuration.",
       details: error.message || String(error),
     });

@@ -227,7 +227,7 @@ class CronService {
         let alertFrom = process.env.ALERT_EMAIL_FROM || "Crontab <alerts@crontab.sh>";
 
         try {
-          const userDoc = await User.findById((job as any).userId);
+          const userDoc = await User.findById(job.userId);
           if (userDoc?.resendApiKeyEncrypted) {
             apiKey = decrypt(userDoc.resendApiKeyEncrypted);
             alertFrom = userDoc.resendEmail || alertFrom;
