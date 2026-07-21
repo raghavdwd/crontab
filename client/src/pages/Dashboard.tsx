@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import toast from "react-hot-toast";
 import api from "../lib/api";
 import { Button } from "../components/ui/button";
 import {
@@ -167,10 +168,17 @@ export const Dashboard: React.FC = () => {
   const handleRunJob = async (jobId: string) => {
     setRunningJobId(jobId);
     try {
-      await api.post(`/cron/${jobId}/run`);
+      const res = await api.post(`/cron/${jobId}/run`);
+      const log = res.data?.log;
+      if (log?.status === "success") {
+        toast.success(`Run complete — exit ${log.exitCode}, stdout: ${log.stdout || "(empty)"}`);
+      } else {
+        toast.error(`Run failed — exit ${log?.exitCode}, stderr: ${log?.stderr || "(empty)"}`);
+      }
       fetchLogs(currentPage);
-    } catch (err) {
-      console.error("Run failed:", err);
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.message || "Run failed";
+      toast.error(msg);
     } finally {
       setRunningJobId(null);
     }

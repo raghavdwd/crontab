@@ -2,7 +2,7 @@ import { unlink } from "node:fs/promises";
 
 const RESPONSE_BODY_MAX_BYTES = 64 * 1024; // 64KB
 
-export const saveResponseBodyToFile = async (
+export const readAndCleanupResponseBody = async (
   filePath: string,
 ): Promise<{ responseBody: string; bodyTruncated: boolean }> => {
   let bodyTruncated = false;
@@ -10,13 +10,16 @@ export const saveResponseBodyToFile = async (
   try {
     const file = Bun.file(filePath);
     if (await file.exists()) {
-      const text = await file.text();
-      if (Buffer.byteLength(text, "utf8") > RESPONSE_BODY_MAX_BYTES) {
-        const buf = Buffer.from(text, "utf8").subarray(0, RESPONSE_BODY_MAX_BYTES);
-        responseBody = buf.toString("utf8");
+      const bytes = await file.arrayBuffer();
+      const fullText = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      if (new TextEncoder().encode(fullText).length > RESPONSE_BODY_MAX_BYTES) {
+        // Truncate by encoding to UTF-8 bytes, slicing, then decoding back safely
+        const encoded = new TextEncoder().encode(fullText);
+        const sliced = encoded.slice(0, RESPONSE_BODY_MAX_BYTES);
+        responseBody = new TextDecoder("utf-8", { fatal: false }).decode(sliced);
         bodyTruncated = true;
       } else {
-        responseBody = text;
+        responseBody = fullText;
       }
       await unlink(filePath);
     }

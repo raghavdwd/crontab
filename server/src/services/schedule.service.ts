@@ -1,7 +1,8 @@
 import CronJob, { type ICronJob, type IAlertConfig } from "../models/CronJob";
 import CronLog from "../models/CronLog";
-import { saveResponseBodyToFile } from "../utils/save-response-body";
+import { readAndCleanupResponseBody } from "../utils/save-response-body";
 import { unlink } from "node:fs/promises";
+import { type CronJobSnapshot } from "../types/cron-snapshot";
 
 class CronService {
   private static instance: CronService;
@@ -163,7 +164,7 @@ class CronService {
       let responseBody: string | undefined;
       let bodyTruncated: boolean | undefined;
       if (saveResponse && bodyFilePath) {
-        const result = await saveResponseBodyToFile(bodyFilePath);
+        const result = await readAndCleanupResponseBody(bodyFilePath);
         responseBody = result.responseBody;
         bodyTruncated = result.bodyTruncated;
       }
@@ -224,6 +225,7 @@ class CronService {
           console.warn(`[Alert] RESEND_API_KEY not set, skipping email alert for job ${job._id}`);
           return;
         }
+        const alertFrom = process.env.ALERT_EMAIL_FROM || "Crontab <alerts@crontab.sh>";
         await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -231,7 +233,7 @@ class CronService {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "Crontab <alerts@crontab.sh>",
+            from: alertFrom,
             to: alertConfig.target,
             subject: `Cron Job Failed: ${job.name || job._id}`,
             html: `<h2>Cron Job Failed</h2>
@@ -350,18 +352,20 @@ ${logEntry.stderr ? `<p><strong>Stderr:</strong> <pre>${logEntry.stderr}</pre></
       throw new Error("Cron job not found or unauthorized.");
     }
 
-    // Keep previous values for rollback if re-scheduling fails
-    const previousIsActive = job.isActive;
-    const previousSchedule = job.schedule;
-    const previousCommand = job.command;
-    const previousName = job.name;
-    const previousMethod = job.method;
-    const previousHeaders = job.headers;
-    const previousBody = job.body;
-    const previousTimeout = job.timeout;
-    const previousExpectedStatus = job.expectedStatus;
-    const previousSaveResponse = job.saveResponse;
-    const previousAlertConfig = job.alertConfig;
+    // Snapshot for rollback if re-scheduling fails
+    const snapshot: CronJobSnapshot = {
+      isActive: job.isActive,
+      schedule: job.schedule,
+      command: job.command,
+      name: job.name,
+      method: job.method,
+      headers: job.headers,
+      body: job.body,
+      timeout: job.timeout,
+      expectedStatus: job.expectedStatus,
+      saveResponse: job.saveResponse,
+      alertConfig: job.alertConfig,
+    };
 
     // Apply updates to DB object
     if (updateData.name !== undefined) job.name = updateData.name;
@@ -398,17 +402,17 @@ ${logEntry.stderr ? `<p><strong>Stderr:</strong> <pre>${logEntry.stderr}</pre></
       await CronJob.findOneAndUpdate(
         { _id: jobId, userId },
         {
-          isActive: previousIsActive,
-          schedule: previousSchedule,
-          command: previousCommand,
-          name: previousName || "unknown",
-          method: previousMethod,
-          headers: previousHeaders,
-          body: previousBody,
-          timeout: previousTimeout,
-          expectedStatus: previousExpectedStatus,
-          saveResponse: previousSaveResponse,
-          alertConfig: previousAlertConfig,
+          isActive: snapshot.isActive,
+          schedule: snapshot.schedule,
+          command: snapshot.command,
+          name: snapshot.name || "unknown",
+          method: snapshot.method,
+          headers: snapshot.headers,
+          body: snapshot.body,
+          timeout: snapshot.timeout,
+          expectedStatus: snapshot.expectedStatus,
+          saveResponse: snapshot.saveResponse,
+          alertConfig: snapshot.alertConfig,
         },
       );
       throw error;

@@ -6,8 +6,6 @@
  * @param headers - An array of header objects with name, value, and enabled properties.
  * @param body - The request body to include for applicable HTTP methods.
  * @param timeout - The maximum time in milliseconds to allow for the request.
- * @param saveResponse - Whether to save the response body to a file.
- * @param bodyFilePath - The file path to save the response body if saveResponse is true.
  * @returns A string representing the constructed curl command.
  */
 
@@ -17,18 +15,12 @@ export const buildCurlCommand = (
   headers?: { name: string; value: string; enabled: boolean }[],
   body?: string,
   timeout?: number,
-  saveResponse = false,
-  bodyFilePath?: string,
 ): string => {
   const parts: string[] = ["curl", "-s"];
 
   const shQuote = (s: string) => "'" + s.replace(/'/g, `'"'"'`) + "'";
 
-  if (saveResponse && bodyFilePath) {
-    parts.push("-o", shQuote(bodyFilePath));
-  } else {
-    parts.push("-o", "/dev/null");
-  }
+  parts.push("-o", "/dev/null");
 
   parts.push("-w", "%{http_code}");
 

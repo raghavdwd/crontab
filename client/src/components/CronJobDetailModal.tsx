@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
+import { getNextRunTimes } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +34,8 @@ import {
   Circle,
   Plus,
   AlertTriangle,
+  Play,
+  Bell,
 } from "lucide-react";
 import api from "@/lib/api";
 
@@ -54,6 +58,7 @@ interface CronJob {
   timeout?: number;
   expectedStatus?: number;
   saveResponse: boolean;
+  alertConfig?: { enabled: boolean; type: "email" | "webhook"; target: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -121,6 +126,8 @@ const CronJobDetailModal = ({
   const [timeout, setTimeout_] = useState("");
   const [expectedStatus, setExpectedStatus] = useState("");
   const [saveResponse, setSaveResponse] = useState(false);
+  const [runningNow, setRunningNow] = useState(false);
+  const [alertConfig, setAlertConfig] = useState({ enabled: false, type: "email" as "email" | "webhook", target: "" });
 
   useEffect(() => {
     if (job) {
@@ -143,6 +150,7 @@ const CronJobDetailModal = ({
       setTimeout_(job.timeout?.toString() || "");
       setExpectedStatus(job.expectedStatus?.toString() || "");
       setSaveResponse(job.saveResponse);
+      setAlertConfig(job.alertConfig || { enabled: false, type: "email", target: "" });
     }
   }, [job]);
 
@@ -234,6 +242,25 @@ const CronJobDetailModal = ({
 
   const removeHeader = (id: number) => {
     setHeaders(headers.filter((h) => h.id !== id));
+  };
+
+  const handleRunNow = async () => {
+    if (!job) return;
+    setRunningNow(true);
+    try {
+      const res = await api.post(`/cron/${job._id}/run`);
+      const log = res.data?.log;
+      if (log?.status === "success") {
+        toast.success(`Run complete — exit ${log.exitCode}, stdout: ${log.stdout || "(empty)"}`);
+      } else {
+        toast.error(`Run failed — exit ${log?.exitCode}, stderr: ${log?.stderr || "(empty)"}`);
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.message || "Run failed";
+      toast.error(msg);
+    } finally {
+      setRunningNow(false);
+    }
   };
 
   if (!job) return null;

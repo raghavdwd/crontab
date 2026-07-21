@@ -2,6 +2,7 @@ import { type Response } from "express";
 import CronService from "../services/schedule.service";
 import { type AuthenticatedRequest } from "../middlewares/auth.middleware";
 import { buildCurlCommand } from "../utils/build-curl";
+import { type CreateJobRequest } from "../types/cron-request";
 const cronService = new CronService();
 
 /**
@@ -15,18 +16,8 @@ export const handleCreateJob = async (
   try {
     const userId = req.user?.id as string;
 
-    const {
-      name,
-      schedule,
-      url,
-      method,
-      headers,
-      body,
-      timeout,
-      expectedStatus,
-      saveResponse,
-      alertConfig,
-    } = req.body;
+    const input = req.body as CreateJobRequest;
+    const { name, schedule, url, method, headers, body, timeout, expectedStatus, saveResponse, alertConfig } = input;
 
     if (!schedule || !url) {
       res
@@ -35,7 +26,7 @@ export const handleCreateJob = async (
       return;
     }
 
-    const command = buildCurlCommand(url, method, headers, body, timeout, !!saveResponse);
+    const command = buildCurlCommand(url, method, headers, body, timeout);
     const job = await cronService.createJob(userId, name, schedule, command, {
       method,
       headers,
@@ -90,19 +81,8 @@ export const handleUpdateJob = async (
     const userId = req.user?.id as string;
 
     const id = req.params.id as string;
-    const {
-      name,
-      schedule,
-      url,
-      method,
-      headers,
-      body,
-      timeout,
-      expectedStatus,
-      isActive,
-      saveResponse,
-      alertConfig,
-    } = req.body;
+    const input = req.body as CreateJobRequest & { isActive?: boolean };
+    const { name, schedule, url, method, headers, body, timeout, expectedStatus, isActive, saveResponse, alertConfig } = input;
 
     const shouldRebuildCommand =
       url !== undefined ||
@@ -120,7 +100,7 @@ export const handleUpdateJob = async (
         });
         return;
       }
-      command = buildCurlCommand(url, method, headers, body, timeout, !!saveResponse);
+      command = buildCurlCommand(url, method, headers, body, timeout);
     }
     const job = await cronService.updateJob(userId, id, {
       name,

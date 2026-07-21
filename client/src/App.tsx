@@ -4,6 +4,7 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
+import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./contexts/AuthContext";
 import Navbar from "./components/Navbar";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -42,6 +43,7 @@ function App() {
           </main>
         </div>
       </Router>
+      <Toaster position="top-right" />
     </AuthProvider>
   );
 }
